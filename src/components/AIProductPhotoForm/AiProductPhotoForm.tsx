@@ -91,7 +91,7 @@ export function AiProductPhotoForm() {
             <FormField
               control={form.control}
               name="pictures"
-              render={({ field }) => (
+              render={({ }) => (
                 <FormItem>
                   <FormLabel>Upload Images</FormLabel>
                   <FormControl>
