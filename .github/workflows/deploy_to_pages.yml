@@ -43,7 +43,7 @@ jobs:
 
       - name: Build with Vite
         env:
-          VITE_API_URL: ${{ vars.VITE_IMAGE_GEN_API_URL }}
+          VITE_IMAGE_GEN_API_URL: ${{ vars.VITE_IMAGE_GEN_API_URL }}
         working-directory: .
         run: npm run build
     
