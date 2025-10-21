@@ -44,6 +44,9 @@ jobs:
       - name: Build with Vite
         working-directory: .
         run: npm run build
+    
+      - name: Copy index.html to 404.html
+        run: cp dist/index.html dist/404.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
