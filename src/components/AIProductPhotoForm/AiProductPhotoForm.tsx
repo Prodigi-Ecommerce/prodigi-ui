@@ -1,6 +1,8 @@
+import { useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useDropzone } from 'react-dropzone'
 import {
   Form,
   FormControl,
@@ -8,85 +10,82 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form.tsx'
-import { Input } from '@/components/ui/input.tsx'
-import { Button } from '@/components/ui/button.tsx'
-import { useState } from 'react'
-import axios from 'axios'
-import type { Option } from '@/types/option.ts'
-import { MultiSelectCombobox } from '@/components/AIProductPhotoForm/MultiSelectCombobox/MultiSelectCombobox.tsx'
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { processImages } from './AiProductPhotoForm.utils'
 
 const formSchema = z.object({
   pictures: z
-    .instanceof(FileList)
-    .refine((files) => files?.length > 0, 'Please select at least one file')
-    .refine((files) => {
-      const allowedTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/webp',
-        'image/heic',
-        'image/heif',
-      ]
-      return Array.from(files).every((file) => allowedTypes.includes(file.type))
-    }, 'Only JPEG, PNG, and WebP files are allowed'),
-  labels: z.array(z.string()).min(1, 'Please have at least one label selected'),
-})
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-})
-
-const uploadAndGenerateImage = async (imageFiles: File[], labels: string[]) => {
-  const formData = new FormData()
-
-  imageFiles.forEach((file) => {
-    formData.append('image', file)
-  })
-
-  try {
-    const response = await api.post('/api/images/v2/create', formData, {
-      params: {
-        garmentTags: labels.join(','),
+    .array(z.instanceof(File))
+    .nonempty('Please select at least one file')
+    .refine(
+      (files) => {
+        const allowedTypes = [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/heic',
+          'image/heif',
+        ]
+        return files.every((file) => allowedTypes.includes(file.type))
       },
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-
-    // Return the array of base64 images
-    return response.data.images as string[]
-  } catch (error) {
-    console.error('Upload failed:', error)
-    throw error
-  }
-}
+      { message: 'Only JPEG, PNG, and WebP files are allowed' }
+    ),
+})
 
 export function AiProductPhotoForm() {
-  const [generatedImages, setGeneratedImages] = useState<string[]>([])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+  const [previews, setPreviews] = useState<string[]>([])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      pictures: undefined,
-      labels: [],
+      pictures: [],
+    },
+  })
+
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      // Add files to form state
+      const updatedFiles = [...form.getValues('pictures'), ...acceptedFiles]
+      form.setValue('pictures', updatedFiles, { shouldValidate: true })
+
+      // Generate previews
+      const previewUrls = acceptedFiles.map((file) => URL.createObjectURL(file))
+      setPreviews((prev) => [...prev, ...previewUrls])
+    },
+    [form]
+  )
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/jpeg': ['.jpeg', '.jpg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp'],
+      'image/heic': ['.heic'],
+      'image/heif': ['.heif'],
     },
   })
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const files = Array.from(values.pictures)
-    const images = await uploadAndGenerateImage(files, values.labels)
-    setGeneratedImages(images)
+    setIsProcessing(true)
+    try {
+      const files = values.pictures
+      const result = await processImages(files)
+      setCurrentProjectId(result.projectId)
+    } catch (error) {
+      console.error('Processing failed:', error)
+    } finally {
+      setIsProcessing(false)
+    }
   }
-
-  const garmentOptions: Option[] = [
-    { value: 'jacket', label: 'Jacket' },
-    { value: 'shirt', label: 'Shirt' },
-  ]
 
   return (
     <div className="min-h-screen flex flex-col items-center pt-[10vh] pb-20 px-4">
-      <div className="grid w-full max-w-sm items-center gap-3 bg-card text-card-foreground rounded-lg shadow-lg shadow-primary/20 p-6 border border-border">
+      <div className="grid w-full max-w-lg gap-5 bg-card text-card-foreground rounded-lg shadow-lg shadow-primary/20 p-6 border border-border">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
@@ -94,69 +93,82 @@ export function AiProductPhotoForm() {
               name="pictures"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Input Pictures</FormLabel>
+                  <FormLabel>Upload Images</FormLabel>
                   <FormControl>
-                    <Input
-                      type="file"
-                      multiple
-                      onChange={(e) => field.onChange(e.target.files)}
-                      name={field.name}
-                      ref={field.ref}
-                    />
+                    <div className="space-y-2">
+                      {/* Drag and Drop Zone */}
+                      <div
+                        {...getRootProps()}
+                        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDragActive
+                            ? 'border-primary bg-primary/10'
+                            : 'border-muted-foreground/30 hover:border-primary/60'
+                          }`}
+                      >
+                        <input {...getInputProps()} />
+                        {isDragActive ? (
+                          <p className="text-primary font-medium">
+                            Drop your images here...
+                          </p>
+                        ) : (
+                          <p className="text-muted-foreground">
+                            Drag & drop images here, or click to select
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Hidden native input as fallback */}
+                      <Input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files ?? [])
+                          onDrop(files)
+                        }}
+                      />
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
-            ></FormField>
-            <FormField
-              control={form.control}
-              name="labels"
-              render={({ field, fieldState }) => (
-                <FormItem>
-                  <FormLabel>Garment Labels</FormLabel>
-                  <FormControl>
-                    <MultiSelectCombobox
-                      options={garmentOptions}
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder="Choose garment types..."
-                      error={fieldState.error}
+            />
+
+            {/* Image Preview Grid */}
+            {previews.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
+                {previews.map((src, idx) => (
+                  <div
+                    key={idx}
+                    className="relative aspect-square overflow-hidden rounded-md border border-border"
+                  >
+                    <img
+                      src={src}
+                      alt={`Preview ${idx}`}
+                      className="object-cover w-full h-full"
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            ></FormField>
-            <Button type="submit" className="w-full">Submit</Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={isProcessing}>
+              {isProcessing ? 'Processing...' : 'Submit'}
+            </Button>
           </form>
         </Form>
-      </div>
 
-      {generatedImages.length > 0 && (
-        <div className="w-full max-w-6xl mt-12">
-          <h2 className="text-2xl font-semibold mb-6 text-center bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            Generated Images
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {generatedImages.map((base64Image, index) => (
-              <div
-                key={index}
-                className="relative group overflow-hidden rounded-lg border border-border bg-card shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/20 hover:border-primary/50 transition-all duration-300"
-              >
-                <img
-                  src={`data:image/png;base64,${base64Image}`}
-                  alt={`Generated ${index + 1}`}
-                  className="w-full h-auto object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="absolute bottom-0 left-0 right-0 p-3 bg-background/80 backdrop-blur-sm translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                  <p className="text-sm font-medium text-foreground">Image {index + 1}</p>
-                </div>
-              </div>
-            ))}
+        {currentProjectId && (
+          <div className="mt-4 p-3 bg-primary/10 rounded-md">
+            <p className="text-sm text-muted-foreground">
+              Project ID:{' '}
+              <span className="font-mono font-semibold text-foreground">
+                {currentProjectId}
+              </span>
+            </p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
