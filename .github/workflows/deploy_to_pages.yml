@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
     paths:
       - 'src/**'
       - '.github/workflows/deploy_to_pages.yml'
