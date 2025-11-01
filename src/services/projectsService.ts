@@ -1,28 +1,49 @@
-import type { CreateProjectResponse, UpdateProjectResponse } from "@/types/projectsApi"
-import projectsApiClient from "./projectsApi"
+import type {
+  CreateProjectResponse,
+  ProjectDetail,
+  UpdateProjectResponse,
+  UploadUrl,
+} from '@/types/projectsApi'
+import { getWorkspaceHeaders } from './apiHeaders'
+import projectsApiClient from './projectsApi'
 
-export const createProject = async (files: File[]) => {
+interface CreateProjectArgs {
+  workspaceId: string
+  name: string
+  files: File[]
+}
+
+export const createProject = async ({
+  workspaceId,
+  name,
+  files,
+}: CreateProjectArgs) => {
   const response = await projectsApiClient.post<CreateProjectResponse>(
     '/projects',
     {
+      name,
       files: files.map((file) => ({
-        fileType: file.type,
+        fileType: file.type || 'application/octet-stream',
       })),
     },
     {
-      headers: {
-        'x-user-id': '001221', // Replace with actual user ID retrieval logic
-        Authorization: `Bearer mock-token`, // Replace with actual token retrieval logic
-      },
+      headers: getWorkspaceHeaders(workspaceId),
     }
   )
   return response.data
 }
 
-export const updateProject = async (
-  projectId: string,
-  uploadUrls: CreateProjectResponse['uploadUrls']
-) => {
+interface UpdateProjectArgs {
+  workspaceId: string
+  projectId: string
+  uploadUrls: UploadUrl[]
+}
+
+export const updateProject = async ({
+  workspaceId,
+  projectId,
+  uploadUrls,
+}: UpdateProjectArgs) => {
   const response = await projectsApiClient.patch<UpdateProjectResponse>(
     `/projects/${projectId}`,
     {
@@ -34,9 +55,22 @@ export const updateProject = async (
       outputImages: [],
     },
     {
-      headers: {
-        'x-user-id': '001221', // Replace with actual user ID retrieval logic
-      },
+      headers: getWorkspaceHeaders(workspaceId),
+    }
+  )
+  return response.data
+}
+
+interface GetProjectArgs {
+  workspaceId: string
+  projectId: string
+}
+
+export const getProject = async ({ workspaceId, projectId }: GetProjectArgs) => {
+  const response = await projectsApiClient.get<ProjectDetail>(
+    `/projects/${projectId}`,
+    {
+      headers: getWorkspaceHeaders(workspaceId),
     }
   )
   return response.data
