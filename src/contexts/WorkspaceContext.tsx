@@ -7,11 +7,13 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { WorkspaceSummary } from '@/types/workspacesApi'
 import {
   createWorkspace as createWorkspaceRequest,
   fetchWorkspaces,
 } from '@/services/workspacesService'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface WorkspaceContextValue {
   workspaces: WorkspaceSummary[]
@@ -50,81 +52,137 @@ const persistWorkspaceId = (workspaceId: string | null) => {
 }
 
 export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([])
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(
     null
   )
-  const [isLoading, setIsLoading] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const { user, accessToken } = useAuth()
+  const authHeaders = useMemo(
+    () => (user && accessToken ? { userId: user.id, accessToken } : null),
+    [user, accessToken]
+  )
+  const queryClient = useQueryClient()
+  const workspaceQueryKey = useMemo(
+    () => ['workspaces', user?.id ?? 'anonymous'],
+    [user?.id]
+  )
 
   const selectWorkspace = useCallback((workspaceId: string | null) => {
-    setSelectedWorkspaceId(workspaceId)
-    persistWorkspaceId(workspaceId)
+    setSelectedWorkspaceId((previous) => {
+      if (previous === workspaceId) {
+        return previous
+      }
+      persistWorkspaceId(workspaceId)
+      return workspaceId
+    })
   }, [])
+
+  const {
+    data: workspaces = [],
+    isLoading: isQueryLoading,
+    isFetching,
+    error: workspaceQueryError,
+    refetch,
+  } = useQuery({
+    queryKey: workspaceQueryKey,
+    queryFn: async () => {
+      if (!authHeaders) {
+        throw new Error('Missing authentication context')
+      }
+      return fetchWorkspaces(authHeaders)
+    },
+    enabled: Boolean(authHeaders),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  })
+
+  const isLoading = isQueryLoading || isFetching
+
+  useEffect(() => {
+    if (!authHeaders) {
+      selectWorkspace(null)
+      return
+    }
+
+    if (workspaces.length === 0) {
+      selectWorkspace(null)
+      return
+    }
+
+    if (
+      selectedWorkspaceId &&
+      workspaces.some(
+        (workspace) => workspace.workspaceId === selectedWorkspaceId
+      )
+    ) {
+      return
+    }
+
+    const storedWorkspaceId = getStoredWorkspaceId()
+    const preferredWorkspaceId =
+      storedWorkspaceId &&
+      workspaces.find(
+        (workspace) => workspace.workspaceId === storedWorkspaceId
+      )?.workspaceId
+
+    selectWorkspace(preferredWorkspaceId ?? workspaces[0]?.workspaceId ?? null)
+  }, [authHeaders, workspaces, selectWorkspace, selectedWorkspaceId])
 
   const refreshWorkspaces = useCallback(
     async (preferredWorkspaceId?: string) => {
-      setIsLoading(true)
-      setError(null)
+      if (!authHeaders) {
+        setActionError('You must be signed in to manage workspaces')
+        selectWorkspace(null)
+        return
+      }
 
-      try {
-        const fetchedWorkspaces = await fetchWorkspaces()
-        setWorkspaces(fetchedWorkspaces)
-
-        if (fetchedWorkspaces.length === 0) {
-          selectWorkspace(null)
-          return
-        }
-
-        const storedWorkspaceId =
-          preferredWorkspaceId ?? getStoredWorkspaceId()
-        const matchedWorkspace =
-          storedWorkspaceId &&
-          fetchedWorkspaces.find(
-            (workspace) => workspace.workspaceId === storedWorkspaceId
-          )
-
+      setActionError(null)
+      const result = await refetch({ throwOnError: false })
+      if (preferredWorkspaceId && result.data) {
+        const matchedWorkspace = result.data.find(
+          (workspace) => workspace.workspaceId === preferredWorkspaceId
+        )
         if (matchedWorkspace) {
           selectWorkspace(matchedWorkspace.workspaceId)
-        } else {
-          selectWorkspace(fetchedWorkspaces[0]?.workspaceId ?? null)
         }
-      } catch (err) {
-        console.error('Failed to load workspaces', err)
-        setError('Failed to load workspaces')
-        selectWorkspace(null)
-      } finally {
-        setIsLoading(false)
       }
     },
-    [selectWorkspace]
+    [authHeaders, refetch, selectWorkspace]
   )
-
-  useEffect(() => {
-    refreshWorkspaces().catch((err) => {
-      console.error('Initial workspace load failed', err)
-    })
-  }, [refreshWorkspaces])
 
   const createWorkspace = useCallback(
     async (name: string) => {
       setIsCreating(true)
-      setError(null)
+      setActionError(null)
 
       try {
-        const createdWorkspace = await createWorkspaceRequest(name)
-        await refreshWorkspaces(createdWorkspace.workspaceId)
+        if (!authHeaders) {
+          throw new Error('You must be signed in to create a workspace')
+        }
+
+        const createdWorkspace = await createWorkspaceRequest(name, authHeaders)
+        persistWorkspaceId(createdWorkspace.workspaceId)
+        selectWorkspace(createdWorkspace.workspaceId)
+        await queryClient.invalidateQueries({ queryKey: workspaceQueryKey })
       } catch (err) {
         console.error('Failed to create workspace', err)
-        setError('Failed to create workspace')
+        setActionError('Failed to create workspace')
         throw err
       } finally {
         setIsCreating(false)
       }
     },
-    [refreshWorkspaces]
+    [authHeaders, queryClient, selectWorkspace, workspaceQueryKey]
   )
+
+  const workspaceErrorMessage =
+    workspaceQueryError instanceof Error
+      ? workspaceQueryError.message
+      : workspaceQueryError
+        ? 'Failed to load workspaces'
+        : null
+  const error = actionError ?? workspaceErrorMessage ?? null
 
   const value = useMemo<WorkspaceContextValue>(
     () => ({

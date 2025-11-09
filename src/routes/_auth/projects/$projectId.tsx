@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { createFileRoute } from '@tanstack/react-router'
-import { WorkspaceProvider } from '@/contexts/WorkspaceContext'
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { getProject } from '@/services/projectsService'
 import type {
   ProjectDetail,
@@ -183,6 +183,11 @@ const createZipBlob = async (
 const ProjectDetailsPage = () => {
   const { projectId } = Route.useParams()
   const { selectedWorkspaceId } = useWorkspaceContext()
+  const { user, accessToken } = useAuth()
+  const authHeaders = useMemo(
+    () => (user && accessToken ? { userId: user.id, accessToken } : null),
+    [user, accessToken]
+  )
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -193,9 +198,12 @@ const ProjectDetailsPage = () => {
     let isMounted = true
 
     const loadProject = async () => {
-      if (!selectedWorkspaceId) {
+      if (!selectedWorkspaceId || !authHeaders) {
         setProject(null)
         setIsLoading(false)
+        if (!authHeaders) {
+          setError('You must be signed in to view project details.')
+        }
         return
       }
 
@@ -206,6 +214,7 @@ const ProjectDetailsPage = () => {
         const result = await getProject({
           workspaceId: selectedWorkspaceId,
           projectId,
+          auth: authHeaders,
         })
 
         if (isMounted) {
@@ -228,7 +237,7 @@ const ProjectDetailsPage = () => {
     return () => {
       isMounted = false
     }
-  }, [projectId, selectedWorkspaceId])
+  }, [projectId, selectedWorkspaceId, authHeaders])
 
   const downloadableOutputs = useMemo(() => {
     if (!project) {
@@ -368,14 +377,8 @@ const ProjectDetailsPage = () => {
   )
 }
 
-const ProjectDetailsRoute = () => (
-  <WorkspaceProvider>
-    <ProjectDetailsPage />
-  </WorkspaceProvider>
-)
-
 export const Route = createFileRoute('/_auth/projects/$projectId')({
-  component: ProjectDetailsRoute,
+  component: ProjectDetailsPage,
   staticData: {
     title: 'Project details',
   },

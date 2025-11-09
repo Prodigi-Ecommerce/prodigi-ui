@@ -4,19 +4,21 @@ import type {
   UpdateProjectResponse,
   UploadUrl,
 } from '@/types/projectsApi'
-import { getWorkspaceHeaders } from './apiHeaders'
+import { getWorkspaceHeaders, type AuthHeaderParams } from './apiHeaders'
 import projectsApiClient from './projectsApi'
 
 interface CreateProjectArgs {
   workspaceId: string
   name: string
   files: File[]
+  auth: AuthHeaderParams
 }
 
 export const createProject = async ({
   workspaceId,
   name,
   files,
+  auth,
 }: CreateProjectArgs) => {
   const response = await projectsApiClient.post<CreateProjectResponse>(
     '/projects',
@@ -27,7 +29,7 @@ export const createProject = async ({
       })),
     },
     {
-      headers: getWorkspaceHeaders(workspaceId),
+      headers: getWorkspaceHeaders(workspaceId, auth),
     }
   )
   return response.data
@@ -37,12 +39,14 @@ interface UpdateProjectArgs {
   workspaceId: string
   projectId: string
   uploadUrls: UploadUrl[]
+  auth: AuthHeaderParams
 }
 
 export const updateProject = async ({
   workspaceId,
   projectId,
   uploadUrls,
+  auth,
 }: UpdateProjectArgs) => {
   const response = await projectsApiClient.patch<UpdateProjectResponse>(
     `/projects/${projectId}`,
@@ -55,7 +59,7 @@ export const updateProject = async ({
       outputImages: [],
     },
     {
-      headers: getWorkspaceHeaders(workspaceId),
+      headers: getWorkspaceHeaders(workspaceId, auth),
     }
   )
   return response.data
@@ -64,13 +68,18 @@ export const updateProject = async ({
 interface GetProjectArgs {
   workspaceId: string
   projectId: string
+  auth: AuthHeaderParams
 }
 
-export const getProject = async ({ workspaceId, projectId }: GetProjectArgs) => {
+export const getProject = async ({
+  workspaceId,
+  projectId,
+  auth,
+}: GetProjectArgs) => {
   const response = await projectsApiClient.get<ProjectDetail>(
     `/projects/${projectId}`,
     {
-      headers: getWorkspaceHeaders(workspaceId),
+      headers: getWorkspaceHeaders(workspaceId, auth),
     }
   )
   return response.data

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -13,8 +13,8 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { WorkspaceSelector } from '@/components/Workspace/WorkspaceSelector'
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { processImages } from './AiProductPhotoForm.utils'
 
 const formSchema = z.object({
@@ -46,6 +46,11 @@ export function AiProductPhotoForm() {
   const [previews, setPreviews] = useState<string[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
   const { selectedWorkspaceId } = useWorkspaceContext()
+  const { user, accessToken } = useAuth()
+  const authHeaders = useMemo(
+    () => (user && accessToken ? { userId: user.id, accessToken } : null),
+    [user, accessToken]
+  )
   const sectionTitleClass =
     'text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground'
 
@@ -86,6 +91,10 @@ export function AiProductPhotoForm() {
       setSubmitError('Select a workspace before creating a project')
       return
     }
+    if (!authHeaders) {
+      setSubmitError('You must be signed in to create a project')
+      return
+    }
 
     setIsProcessing(true)
     setSubmitError(null)
@@ -95,6 +104,7 @@ export function AiProductPhotoForm() {
         files,
         projectName: values.projectName,
         workspaceId: selectedWorkspaceId,
+        auth: authHeaders,
       })
       setCurrentProjectId(result.projectId)
       form.reset({
@@ -115,7 +125,6 @@ export function AiProductPhotoForm() {
   return (
     <div className="min-h-screen flex flex-col items-center pt-[10vh] pb-20 px-4">
       <div className="grid w-full max-w-lg gap-5 bg-card text-card-foreground rounded-lg shadow-lg shadow-primary/20 p-6 border border-border">
-        <WorkspaceSelector />
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
@@ -213,7 +222,7 @@ export function AiProductPhotoForm() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isProcessing || !selectedWorkspaceId}
+              disabled={isProcessing || !selectedWorkspaceId || !authHeaders}
             >
               {isProcessing ? 'Processing…' : 'Create project'}
             </Button>

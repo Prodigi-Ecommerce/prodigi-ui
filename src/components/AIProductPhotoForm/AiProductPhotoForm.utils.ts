@@ -1,10 +1,12 @@
 import { createProject, updateProject } from '@/services/projectsService'
 import axios from 'axios'
+import type { AuthHeaderParams } from '@/services/apiHeaders'
 
 interface ProcessImagesArgs {
   workspaceId: string
   projectName: string
   files: File[]
+  auth: AuthHeaderParams
 }
 
 interface ProcessImagesResult {
@@ -47,9 +49,15 @@ export const processImages = async ({
   workspaceId,
   projectName,
   files,
+  auth,
 }: ProcessImagesArgs): Promise<ProcessImagesResult> => {
   console.log('Step 1: Creating project with files:', files.map((f) => f.name))
-  const projectData = await createProject({ workspaceId, name: projectName, files })
+  const projectData = await createProject({
+    workspaceId,
+    name: projectName,
+    files,
+    auth,
+  })
 
   if (files.length !== projectData.uploadUrls.length) {
     throw new Error('Number of files does not match upload URLs from backend')
@@ -71,6 +79,7 @@ export const processImages = async ({
     workspaceId,
     projectId: projectData.projectId,
     uploadUrls: projectData.uploadUrls,
+    auth,
   })
 
   return {

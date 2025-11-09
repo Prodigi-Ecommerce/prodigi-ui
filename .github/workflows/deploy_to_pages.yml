@@ -45,6 +45,8 @@ jobs:
       - name: Build with Vite
         env:
           VITE_IMAGE_GEN_API_URL: ${{ vars.VITE_IMAGE_GEN_API_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
         working-directory: .
         run: npm run build
     

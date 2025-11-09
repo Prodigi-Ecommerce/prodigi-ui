@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { WorkspaceSelector } from '@/components/Workspace/WorkspaceSelector'
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
+import { useAuth } from '@/contexts/AuthContext'
 import projectsApiClient from '@/services/projectsApi'
 import { getWorkspaceHeaders } from '@/services/apiHeaders'
 import type {
@@ -41,9 +41,16 @@ export function Dashboard() {
   const [nameFilter, setNameFilter] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const { selectedWorkspaceId } = useWorkspaceContext()
+  const { user, accessToken } = useAuth()
+  const authHeaders = useMemo(
+    () => (user && accessToken ? { userId: user.id, accessToken } : null),
+    [user, accessToken]
+  )
+
+  const workspaceReady = Boolean(selectedWorkspaceId && authHeaders)
 
   const fetchProjects = async () => {
-    if (!selectedWorkspaceId) {
+    if (!workspaceReady || !selectedWorkspaceId || !authHeaders) {
       setProjects([])
       setLoading(false)
       return
@@ -52,9 +59,12 @@ export function Dashboard() {
     setLoading(true)
     setError(null)
     try {
-      const response = await projectsApiClient.get<ProjectSummary[]>('/projects', {
-        headers: getWorkspaceHeaders(selectedWorkspaceId),
-      })
+      const response = await projectsApiClient.get<ProjectSummary[]>(
+        '/projects',
+        {
+          headers: getWorkspaceHeaders(selectedWorkspaceId, authHeaders),
+        }
+      )
       setProjects(response.data)
     } catch (err) {
       console.error('Failed to fetch projects:', err)
@@ -66,7 +76,7 @@ export function Dashboard() {
 
   useEffect(() => {
     fetchProjects()
-  }, [selectedWorkspaceId])
+  }, [selectedWorkspaceId, authHeaders, workspaceReady])
 
   const hasActiveFilters =
     statusFilter !== 'ALL' || nameFilter.trim().length > 0
@@ -123,7 +133,6 @@ export function Dashboard() {
         <div className="flex flex-col gap-4">
           <div className="space-y-2">
             <h1 className="text-3xl font-bold">Projects</h1>
-            <WorkspaceSelector />
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className={sectionTitleClass}>Optional filters</p>
@@ -131,7 +140,7 @@ export function Dashboard() {
               variant={showFilters || hasActiveFilters ? 'default' : 'outline'}
               size="sm"
               onClick={() => setShowFilters((prev) => !prev)}
-              disabled={!selectedWorkspaceId}
+              disabled={!workspaceReady}
               className="gap-2 self-start sm:self-auto"
             >
               <Filter className="h-4 w-4" />
@@ -157,7 +166,7 @@ export function Dashboard() {
                     placeholder="e.g. Spring campaign or project ID"
                     value={nameFilter}
                     onChange={(event) => setNameFilter(event.target.value)}
-                    disabled={!selectedWorkspaceId}
+                    disabled={!workspaceReady}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -165,7 +174,7 @@ export function Dashboard() {
                   <Select
                     value={statusFilter}
                     onValueChange={(value) => setStatusFilter(value as ProjectStatus | 'ALL')}
-                    disabled={!selectedWorkspaceId}
+                    disabled={!workspaceReady}
                   >
                     <SelectTrigger className="h-10">
                       <SelectValue placeholder="All statuses" />
@@ -205,11 +214,11 @@ export function Dashboard() {
               </Card>
             ))}
           </div>
-        ) : !selectedWorkspaceId ? (
+        ) : !workspaceReady ? (
           <Card className="border border-dashed border-border/60 shadow-none">
             <CardContent className="flex flex-col items-center justify-center gap-3 py-16 px-8 text-center">
               <p className="max-w-md text-muted-foreground">
-                Select or create a workspace to view its projects.
+                No projects found. Create one to get started.
               </p>
             </CardContent>
           </Card>

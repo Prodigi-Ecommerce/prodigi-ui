@@ -1,12 +1,17 @@
-const USER_ID = '0012' // TODO: Replace with authenticated user context
-const AUTHORIZATION = 'Bearer mock-token' // TODO: Replace with real auth token
+export interface AuthHeaderParams {
+  userId: string
+  accessToken: string
+}
 
-export const getUserHeaders = () => ({
-  'x-user-id': USER_ID,
-  Authorization: AUTHORIZATION,
+export const getUserHeaders = ({ userId, accessToken }: AuthHeaderParams) => ({
+  'x-user-id': userId,
+  Authorization: `Bearer ${accessToken}`,
 })
 
-export const getWorkspaceHeaders = (workspaceId: string) => ({
-  ...getUserHeaders(),
+export const getWorkspaceHeaders = (
+  workspaceId: string,
+  auth: AuthHeaderParams
+) => ({
+  ...getUserHeaders(auth),
   'x-workspace-id': workspaceId,
 })

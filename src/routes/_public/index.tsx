@@ -119,7 +119,7 @@ const LandingPage = () => {
             </p>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <Button asChild size="lg" className="group px-8 py-6 text-base">
-                <Link to="/dashboard">
+                <Link to="/login">
                   Start creating
                   <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Link>
