@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowRight,
@@ -64,6 +65,37 @@ const workflowSteps: Array<{
   },
 ]
 
+const useSlideInOnScroll = (direction: 'left' | 'right') => {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.unobserve(element)
+        }
+      },
+      { threshold: 0.2 }
+    )
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const initialOffset = direction === 'left' ? '-translate-x-10' : 'translate-x-10'
+  const animationClass = [
+    'transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
+    isVisible ? 'opacity-100 translate-x-0' : `opacity-0 ${initialOffset}`,
+  ].join(' ')
+
+  return { ref, animationClass }
+}
+
 const HeroShowcase = () => {
   return (
     <div className="relative mt-16 flex flex-col gap-6 rounded-3xl border bg-card/80 p-8 shadow-lg shadow-primary/10 backdrop-blur">
@@ -100,13 +132,29 @@ const HeroShowcase = () => {
   )
 }
 
+const BackgroundTexture = () => (
+  <div className="pointer-events-none absolute inset-0 -z-10">
+    <div className="absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-background" />
+    <div className="absolute inset-0 bg-[radial-gradient(120%_60%_at_30%_0%,rgba(99,102,241,0.12),transparent)]" />
+    <div className="absolute inset-0 bg-[radial-gradient(110%_70%_at_70%_10%,rgba(59,130,246,0.12),transparent)]" />
+    <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_90%,rgba(148,163,184,0.16),transparent)]" />
+  </div>
+)
+
 const LandingPage = () => {
+  const heroLeft = useSlideInOnScroll('left')
+  const heroRight = useSlideInOnScroll('right')
+  const featureLeft = useSlideInOnScroll('left')
+  const featureRight = useSlideInOnScroll('right')
+  const workflowLeft = useSlideInOnScroll('left')
+  const workflowRight = useSlideInOnScroll('right')
+
   return (
-    <div className="flex flex-col">
-      <section className="relative overflow-hidden px-6 pb-20 pt-24 sm:px-12">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/20 via-transparent to-secondary/40" />
+    <div className="relative isolate flex min-h-screen flex-col overflow-hidden bg-background">
+      <BackgroundTexture />
+      <section className="relative px-6 pb-20 pt-24 sm:px-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-16 text-center lg:flex-row lg:items-start lg:text-left">
-          <div className="flex-1 space-y-6">
+          <div ref={heroLeft.ref} className={`flex-1 space-y-6 ${heroLeft.animationClass}`}>
             <Badge variant="outline" className="border-primary/40 text-primary">
               AI Merchandising Engine
             </Badge>
@@ -119,7 +167,7 @@ const LandingPage = () => {
             </p>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <Button asChild size="lg" className="group px-8 py-6 text-base">
-                <Link to="/dashboard">
+                <Link to="/login">
                   Start creating
                   <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Link>
@@ -134,15 +182,15 @@ const LandingPage = () => {
               ))}
             </div>
           </div>
-          <div className="flex-1">
+          <div ref={heroRight.ref} className={`flex-1 ${heroRight.animationClass}`}>
             <HeroShowcase />
           </div>
         </div>
       </section>
 
-      <section className="bg-background px-6 py-20 sm:px-12">
+      <section className="px-6 py-20 sm:px-12">
         <div className="mx-auto max-w-6xl space-y-12">
-          <div className="mx-auto max-w-3xl text-center">
+          <div ref={featureLeft.ref} className={`mx-auto max-w-3xl text-center ${featureLeft.animationClass}`}>
             <Badge variant="secondary">Why brands choose Prodigi</Badge>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
               Deliver scroll-stopping visuals without the overhead
@@ -152,7 +200,7 @@ const LandingPage = () => {
               brand playbook.
             </p>
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
+          <div ref={featureRight.ref} className={`grid gap-6 md:grid-cols-3 ${featureRight.animationClass}`}>
             {featureHighlights.map((feature) => (
               <Card key={feature.title} className="border-primary/10">
                 <CardContent className="space-y-4 p-6">
@@ -168,11 +216,10 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <section className="relative overflow-hidden bg-secondary/30 px-6 py-20 sm:px-12">
-        <div className="absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl" />
+      <section className="relative px-6 py-20 sm:px-12">
         <div className="relative mx-auto max-w-6xl">
           <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-            <div className="space-y-6">
+            <div ref={workflowLeft.ref} className={`space-y-6 ${workflowLeft.animationClass}`}>
               <Badge variant="outline" className="border-primary/30 text-primary">
                 Seamless workflow
               </Badge>
@@ -203,7 +250,7 @@ const LandingPage = () => {
                 })}
               </div>
             </div>
-            <div className="flex flex-col gap-6">
+            <div ref={workflowRight.ref} className={`flex flex-col gap-6 ${workflowRight.animationClass}`}>
               <Card className="border-primary/20">
                 <CardContent className="space-y-4 p-6">
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">

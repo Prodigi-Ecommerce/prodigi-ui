@@ -1,13 +1,8 @@
-import { useEffect, useState } from 'react'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
+import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -15,27 +10,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
+import { useAuth } from '@/contexts/AuthContext'
 import projectsApiClient from '@/services/projectsApi'
-
-type ProjectStatus = 'DRAFT' | 'PENDING' | 'PROCESSING' | 'COMPLETE' | 'FAILED'
-
-interface ImageDto {
-  imageId: string
-  s3Key: string
-  downloadUrl?: string
-  uploadedAt?: string
-  generatedAt?: string
-}
-
-interface Project {
-  projectId: string
-  userId: string
-  status: ProjectStatus
-  createdAt: string
-  updatedAt: string
-  inputImages: ImageDto[]
-  outputImages: ImageDto[]
-}
+import { getWorkspaceHeaders } from '@/services/apiHeaders'
+import type {
+  ProjectInputImage,
+  ProjectOutputImage,
+  ProjectStatus,
+  ProjectSummary,
+} from '@/types/projectsApi'
+import { Filter, ChevronDown, ChevronUp, ArrowUpRight } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 
 const statusColors: Record<ProjectStatus, string> = {
   DRAFT: 'bg-gray-500',
@@ -46,22 +34,37 @@ const statusColors: Record<ProjectStatus, string> = {
 }
 
 export function Dashboard() {
-  const [projects, setProjects] = useState<Project[]>([])
+  const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'ALL'>('ALL')
+  const [nameFilter, setNameFilter] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const { selectedWorkspaceId } = useWorkspaceContext()
+  const { user, accessToken } = useAuth()
+  const authHeaders = useMemo(
+    () => (user && accessToken ? { userId: user.id, accessToken } : null),
+    [user, accessToken]
+  )
 
-  const fetchProjects = async (status?: ProjectStatus) => {
+  const workspaceReady = Boolean(selectedWorkspaceId && authHeaders)
+
+  const fetchProjects = async () => {
+    if (!workspaceReady || !selectedWorkspaceId || !authHeaders) {
+      setProjects([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const response = await projectsApiClient.get<Project[]>('/projects', {
-        params: status && status !== undefined ? { status } : {},
-        headers: {
-          'x-user-id': '001221', // Replace with actual user ID retrieval logic
-          Authorization: `Bearer  mock-token`, // Replace with actual token retrieval logic
-        },
-      })
+      const response = await projectsApiClient.get<ProjectSummary[]>(
+        '/projects',
+        {
+          headers: getWorkspaceHeaders(selectedWorkspaceId, authHeaders),
+        }
+      )
       setProjects(response.data)
     } catch (err) {
       console.error('Failed to fetch projects:', err)
@@ -72,12 +75,42 @@ export function Dashboard() {
   }
 
   useEffect(() => {
-    fetchProjects(statusFilter === 'ALL' ? undefined : statusFilter)
-  }, [statusFilter])
+    fetchProjects()
+  }, [selectedWorkspaceId, authHeaders, workspaceReady])
+
+  const hasActiveFilters =
+    statusFilter !== 'ALL' || nameFilter.trim().length > 0
+
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      if (statusFilter !== 'ALL' && project.status !== statusFilter) {
+        return false
+      }
+
+      if (nameFilter) {
+        const search = nameFilter.trim().toLowerCase()
+        const matchesName = project.name.toLowerCase().includes(search)
+        const matchesId = project.projectId.toLowerCase().includes(search)
+        if (!matchesName && !matchesId) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [projects, statusFilter, nameFilter])
+
+  const resetFilters = () => {
+    setStatusFilter('ALL')
+    setNameFilter('')
+  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString()
   }
+
+  const sectionTitleClass =
+    'text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground'
 
   if (error) {
     return (
@@ -97,25 +130,76 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Projects</h1>
-          <Select
-            value={statusFilter}
-            onValueChange={(value) => setStatusFilter(value as ProjectStatus | 'ALL')}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Projects</SelectItem>
-              <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="PROCESSING">Processing</SelectItem>
-              <SelectItem value="COMPLETE">Complete</SelectItem>
-              <SelectItem value="FAILED">Failed</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-4">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold">Projects</h1>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className={sectionTitleClass}>Optional filters</p>
+            <Button
+              variant={showFilters || hasActiveFilters ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowFilters((prev) => !prev)}
+              disabled={!workspaceReady}
+              className="gap-2 self-start sm:self-auto"
+            >
+              <Filter className="h-4 w-4" />
+              {showFilters ? 'Hide filters' : 'Show filters'}
+              {showFilters ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
+
+        {showFilters && (
+          <Card>
+            <CardContent className="pt-6 space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label className={sectionTitleClass}>
+                    Search by name or ID
+                  </Label>
+                  <Input
+                    placeholder="e.g. Spring campaign or project ID"
+                    value={nameFilter}
+                    onChange={(event) => setNameFilter(event.target.value)}
+                    disabled={!workspaceReady}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label className={sectionTitleClass}>Project status</Label>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(value) => setStatusFilter(value as ProjectStatus | 'ALL')}
+                    disabled={!workspaceReady}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All</SelectItem>
+                      <SelectItem value="DRAFT">Draft</SelectItem>
+                      <SelectItem value="PENDING">Pending</SelectItem>
+                      <SelectItem value="PROCESSING">Processing</SelectItem>
+                      <SelectItem value="COMPLETE">Complete</SelectItem>
+                      <SelectItem value="FAILED">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" onClick={resetFilters}>
+                    Reset filters
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {loading ? (
           <div className="space-y-4">
@@ -130,126 +214,144 @@ export function Dashboard() {
               </Card>
             ))}
           </div>
-        ) : projects.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-center text-muted-foreground">
-                No projects found. Create one to get started!
+        ) : !workspaceReady ? (
+          <Card className="border border-dashed border-border/60 shadow-none">
+            <CardContent className="flex flex-col items-center justify-center gap-3 py-16 px-8 text-center">
+              <p className="max-w-md text-muted-foreground">
+                No projects found. Create one to get started.
+              </p>
+            </CardContent>
+          </Card>
+        ) : filteredProjects.length === 0 ? (
+          <Card className="border border-dashed border-border/60 shadow-none">
+            <CardContent className="flex flex-col items-center justify-center gap-4 py-16 px-8 text-center">
+              <p className="max-w-md text-muted-foreground">
+                {hasActiveFilters
+                  ? 'No projects match your filters. Try adjusting or resetting them.'
+                  : 'No projects found. Create one to get started!'}
               </p>
             </CardContent>
           </Card>
         ) : (
-          <Accordion type="single" collapsible className="space-y-4">
-            {projects.map((project) => (
-              <AccordionItem
+          <div className="grid gap-5">
+            {filteredProjects.map((project) => (
+              <Link
                 key={project.projectId}
-                value={project.projectId}
-                className="border rounded-lg bg-card"
+                to="/projects/$projectId"
+                params={{ projectId: project.projectId }}
+                className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
               >
-                <AccordionTrigger className="px-6 hover:no-underline">
-                  <div className="flex items-center gap-4 w-full">
-                    <Badge className={statusColors[project.status]}>
-                      {project.status}
-                    </Badge>
-                    <div className="flex-1 text-left">
-                      <p className="font-mono text-sm">{project.projectId}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Created: {formatDate(project.createdAt)}
-                      </p>
+                <Card className="overflow-hidden transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/50 group-hover:shadow-lg group-active:translate-y-0">
+                  <CardHeader className="space-y-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Badge className={statusColors[project.status]}>
+                            {project.status}
+                          </Badge>
+                          <h2 className="text-xl font-semibold transition-colors group-hover:text-primary">
+                            {project.name}
+                          </h2>
+                        </div>
+                        <p className="font-mono text-xs text-muted-foreground break-all">
+                          {project.projectId}
+                        </p>
+                        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                          <span>Created: {formatDate(project.createdAt)}</span>
+                          <span>Updated: {formatDate(project.updatedAt)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground transition-all group-hover:text-primary">
+                        <span>Open project</span>
+                        <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {project.inputImages.length} input •{' '}
-                      {project.outputImages.length} output
+                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                      <span>{project.inputImages.length} input images</span>
+                      <span>•</span>
+                      <span>{project.outputImages.length} generated images</span>
+                      <span>•</span>
+                      <span className="font-mono">
+                        Workspace: {project.workspaceId}
+                      </span>
                     </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-6 transition-opacity duration-200 data-[state=closed]:opacity-0 data-[state=open]:opacity-100 data-[state=closed]:hidden will-change-[opacity,transform] data-[state=open]:animate-fadeInSlow data-[state=closed]:animate-fadeOutFast">
-                  <div className="space-y-6 pt-4">
-                    {/* Input Images */}
+                  </CardHeader>
+                  <CardContent className="space-y-6">
                     {project.inputImages.length > 0 && (
-                      <div>
-                        <h3 className="text-sm font-semibold mb-3">
-                          Input Images ({project.inputImages.length})
-                        </h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {project.inputImages.map((img) => (
-                            <div
-                              key={img.imageId}
-                              className="relative group overflow-hidden rounded-lg border bg-muted aspect-square"
-                            >
-                              {img.downloadUrl ? (
-                                <img
-                                  src={img.downloadUrl}
-                                  alt={img.imageId}
-                                  loading='lazy'
-                                  decoding='async'
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <p className="text-xs text-muted-foreground">
-                                    No preview
-                                  </p>
-                                </div>
-                              )}
-                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <p className="text-white text-xs font-mono px-2 text-center break-all">
-                                  {img.imageId}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <PreviewGallery
+                        title="Latest input images"
+                        images={project.inputImages}
+                      />
                     )}
-
-                    {/* Output Images */}
                     {project.outputImages.length > 0 && (
-                      <div>
-                        <h3 className="text-sm font-semibold mb-3">
-                          Generated Images ({project.outputImages.length})
-                        </h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {project.outputImages.map((img) => (
-                            <div
-                              key={img.imageId}
-                              className="relative group overflow-hidden rounded-lg border bg-muted aspect-square"
-                            >
-                              {img.downloadUrl ? (
-                                <img
-                                  src={img.downloadUrl}
-                                  alt={img.imageId}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <p className="text-xs text-muted-foreground">
-                                    No preview
-                                  </p>
-                                </div>
-                              )}
-                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <p className="text-white text-xs font-mono px-2 text-center break-all">
-                                  {img.imageId}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <PreviewGallery
+                        title="Latest generated images"
+                        images={project.outputImages}
+                      />
                     )}
-
-                    {/* Metadata */}
-                    <div className="text-xs text-muted-foreground space-y-1 pt-4 border-t">
-                      <p>Last updated: {formatDate(project.updatedAt)}</p>
-                      <p className="font-mono">User ID: {project.userId}</p>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
+                    {project.inputImages.length === 0 &&
+                      project.outputImages.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          No images uploaded for this project yet.
+                        </p>
+                      )}
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
-          </Accordion>
+          </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+interface PreviewGalleryProps {
+  title: string
+  images: Array<ProjectInputImage | ProjectOutputImage>
+  previewCount?: number
+}
+
+const PreviewGallery = ({
+  title,
+  images,
+  previewCount = 4,
+}: PreviewGalleryProps) => {
+  const previews = images.slice(0, previewCount)
+  const remainingCount = Math.max(images.length - previews.length, 0)
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {remainingCount > 0 && (
+          <span className="text-xs text-muted-foreground">
+            +{remainingCount} more
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {previews.map((img) => (
+          <div
+            key={img.imageId}
+            className="relative aspect-square overflow-hidden rounded-lg border bg-muted"
+          >
+            {img.downloadUrl ? (
+              <img
+                src={img.downloadUrl}
+                alt={img.imageId}
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center p-3 text-center text-xs text-muted-foreground">
+                No preview
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )

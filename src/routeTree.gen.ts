@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as PublicLoginRouteImport } from './routes/_public/login'
 import { Route as AuthGenerateRouteImport } from './routes/_auth/generate'
 import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
+import { Route as AuthProjectsProjectIdRouteImport } from './routes/_auth/projects/$projectId'
 
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
@@ -28,6 +30,11 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PublicRoute,
 } as any)
+const PublicLoginRoute = PublicLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
 const AuthGenerateRoute = AuthGenerateRouteImport.update({
   id: '/generate',
   path: '/generate',
@@ -38,16 +45,25 @@ const AuthDashboardRoute = AuthDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthProjectsProjectIdRoute = AuthProjectsProjectIdRouteImport.update({
+  id: '/projects/$projectId',
+  path: '/projects/$projectId',
+  getParentRoute: () => AuthRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthDashboardRoute
   '/generate': typeof AuthGenerateRoute
+  '/login': typeof PublicLoginRoute
   '/': typeof PublicIndexRoute
+  '/projects/$projectId': typeof AuthProjectsProjectIdRoute
 }
 export interface FileRoutesByTo {
   '/dashboard': typeof AuthDashboardRoute
   '/generate': typeof AuthGenerateRoute
+  '/login': typeof PublicLoginRoute
   '/': typeof PublicIndexRoute
+  '/projects/$projectId': typeof AuthProjectsProjectIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -55,20 +71,29 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteWithChildren
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/generate': typeof AuthGenerateRoute
+  '/_public/login': typeof PublicLoginRoute
   '/_public/': typeof PublicIndexRoute
+  '/_auth/projects/$projectId': typeof AuthProjectsProjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/dashboard' | '/generate' | '/'
+  fullPaths:
+    | '/dashboard'
+    | '/generate'
+    | '/login'
+    | '/'
+    | '/projects/$projectId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/dashboard' | '/generate' | '/'
+  to: '/dashboard' | '/generate' | '/login' | '/' | '/projects/$projectId'
   id:
     | '__root__'
     | '/_auth'
     | '/_public'
     | '/_auth/dashboard'
     | '/_auth/generate'
+    | '/_public/login'
     | '/_public/'
+    | '/_auth/projects/$projectId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -99,6 +124,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_public/login': {
+      id: '/_public/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_auth/generate': {
       id: '/_auth/generate'
       path: '/generate'
@@ -113,26 +145,37 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/projects/$projectId': {
+      id: '/_auth/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof AuthProjectsProjectIdRouteImport
+      parentRoute: typeof AuthRoute
+    }
   }
 }
 
 interface AuthRouteChildren {
   AuthDashboardRoute: typeof AuthDashboardRoute
   AuthGenerateRoute: typeof AuthGenerateRoute
+  AuthProjectsProjectIdRoute: typeof AuthProjectsProjectIdRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthDashboardRoute: AuthDashboardRoute,
   AuthGenerateRoute: AuthGenerateRoute,
+  AuthProjectsProjectIdRoute: AuthProjectsProjectIdRoute,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface PublicRouteChildren {
+  PublicLoginRoute: typeof PublicLoginRoute
   PublicIndexRoute: typeof PublicIndexRoute
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
+  PublicLoginRoute: PublicLoginRoute,
   PublicIndexRoute: PublicIndexRoute,
 }
 

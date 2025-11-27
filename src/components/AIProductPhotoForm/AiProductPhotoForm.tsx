@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -13,9 +13,15 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { processImages } from './AiProductPhotoForm.utils'
 
 const formSchema = z.object({
+  projectName: z
+    .string()
+    .min(1, 'Project name is required')
+    .max(120, 'Project name is too long'),
   pictures: z
     .array(z.instanceof(File))
     .nonempty('Please select at least one file')
@@ -38,10 +44,20 @@ export function AiProductPhotoForm() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
   const [previews, setPreviews] = useState<string[]>([])
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const { selectedWorkspaceId } = useWorkspaceContext()
+  const { user, accessToken } = useAuth()
+  const authHeaders = useMemo(
+    () => (user && accessToken ? { userId: user.id, accessToken } : null),
+    [user, accessToken]
+  )
+  const sectionTitleClass =
+    'text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground'
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      projectName: '',
       pictures: [],
     },
   })
@@ -71,13 +87,36 @@ export function AiProductPhotoForm() {
   })
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!selectedWorkspaceId) {
+      setSubmitError('Select a workspace before creating a project')
+      return
+    }
+    if (!authHeaders) {
+      setSubmitError('You must be signed in to create a project')
+      return
+    }
+
     setIsProcessing(true)
+    setSubmitError(null)
     try {
       const files = values.pictures
-      const result = await processImages(files)
+      const result = await processImages({
+        files,
+        projectName: values.projectName,
+        workspaceId: selectedWorkspaceId,
+        auth: authHeaders,
+      })
       setCurrentProjectId(result.projectId)
+      form.reset({
+        projectName: '',
+        pictures: [],
+      })
+      setPreviews([])
     } catch (error) {
       console.error('Processing failed:', error)
+      setSubmitError(
+        error instanceof Error ? error.message : 'Processing failed. Try again.'
+      )
     } finally {
       setIsProcessing(false)
     }
@@ -90,10 +129,32 @@ export function AiProductPhotoForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
+              name="projectName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={sectionTitleClass}>
+                    Project name
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Spring campaign lookbook"
+                      {...field}
+                      disabled={isProcessing}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="pictures"
               render={({ }) => (
                 <FormItem>
-                  <FormLabel>Upload Images</FormLabel>
+                  <FormLabel className={sectionTitleClass}>
+                    Upload images
+                  </FormLabel>
                   <FormControl>
                     <div className="space-y-2">
                       {/* Drag and Drop Zone */}
@@ -152,8 +213,18 @@ export function AiProductPhotoForm() {
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={isProcessing}>
-              {isProcessing ? 'Processing...' : 'Submit'}
+            {submitError && (
+              <p className="text-sm text-destructive text-center">
+                {submitError}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isProcessing || !selectedWorkspaceId || !authHeaders}
+            >
+              {isProcessing ? 'Processing…' : 'Create project'}
             </Button>
           </form>
         </Form>
