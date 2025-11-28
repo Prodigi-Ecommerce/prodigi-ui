@@ -48,7 +48,7 @@ export function AiProductPhotoForm() {
   const { selectedWorkspaceId } = useWorkspaceContext()
   const { user, accessToken } = useAuth()
   const authHeaders = useMemo(
-    () => (user && accessToken ? { userId: user.id, accessToken } : null),
+    () => (accessToken ? { accessToken } : null),
     [user, accessToken]
   )
   const sectionTitleClass =

@@ -1,10 +1,8 @@
 export interface AuthHeaderParams {
-  userId: string
   accessToken: string
 }
 
-export const getUserHeaders = ({ userId, accessToken }: AuthHeaderParams) => ({
-  'x-user-id': userId,
+export const getUserHeaders = ({ accessToken }: AuthHeaderParams) => ({
   Authorization: `Bearer ${accessToken}`,
 })
 
