@@ -61,8 +61,11 @@ jobs:
             echo "STATICRYPT_PASSWORD secret is not set. Set it to enable staticrypt."
             exit 1
           fi
+          npm install --no-save staticrypt@3
           npx staticrypt dist/index.html -p "$STATICRYPT_PASSWORD" -o dist/index.html --embed
           npx staticrypt dist/404.html -p "$STATICRYPT_PASSWORD" -o dist/404.html --embed
+          grep -q "staticrypt" dist/index.html && echo "index.html encrypted" || (echo "Staticrypt failed on index.html" && exit 1)
+          grep -q "staticrypt" dist/404.html && echo "404.html encrypted" || (echo "Staticrypt failed on 404.html" && exit 1)
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
