@@ -34,7 +34,7 @@ const AuthLayout = () => {
 
   return (
     <WorkspaceProvider>
-      <SidebarProvider defaultOpen={false}>
+      <SidebarProvider defaultOpen>
         <div className="flex min-h-screen w-full bg-gradient-to-br from-primary/10 via-secondary/5 to-background">
           <MemoizedAppSidebar />
           <SidebarInset className="transition-all duration-300 ease-in-out flex-1 relative">
