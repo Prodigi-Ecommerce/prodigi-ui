@@ -62,10 +62,8 @@ jobs:
             exit 1
           fi
           npm install --no-save staticrypt@3
-          npx staticrypt dist/index.html --password "$STATICRYPT_PASSWORD" --output dist --embed
-          npx staticrypt dist/404.html --password "$STATICRYPT_PASSWORD" --output dist --embed
-          head -n 5 dist/index.html
-          head -n 5 dist/404.html
+          npx staticrypt dist/index.html -p "$STATICRYPT_PASSWORD" -d dist --embed
+          head -n 10 dist/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
