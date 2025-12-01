@@ -62,8 +62,8 @@ jobs:
             exit 1
           fi
           npm install --no-save staticrypt@3
-          npx staticrypt dist/index.html "$STATICRYPT_PASSWORD" --output dist/index.html --embed
-          npx staticrypt dist/404.html "$STATICRYPT_PASSWORD" --output dist/404.html --embed
+          npx staticrypt dist/index.html --password "$STATICRYPT_PASSWORD" --output dist --embed
+          npx staticrypt dist/404.html --password "$STATICRYPT_PASSWORD" --output dist --embed
           head -n 5 dist/index.html
           head -n 5 dist/404.html
 
