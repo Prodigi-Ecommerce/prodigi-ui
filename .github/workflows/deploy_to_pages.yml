@@ -63,6 +63,7 @@ jobs:
           fi
           npm install --no-save staticrypt@3
           npx staticrypt dist/index.html -p "$STATICRYPT_PASSWORD" -d dist --embed
+          npx staticrypt dist/404.html -p "$STATICRYPT_PASSWORD" -d dist --embed
           head -n 10 dist/index.html
 
       - name: Upload artifact
