@@ -95,6 +95,9 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     enabled: Boolean(authHeaders),
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   })
 
   const isLoading = isQueryLoading || isFetching
@@ -162,6 +165,26 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const createdWorkspace = await createWorkspaceRequest(name, authHeaders)
+        const nextWorkspace: WorkspaceSummary = {
+          role: 'owner',
+          joinedAt: createdWorkspace.createdAt,
+          ...createdWorkspace,
+        }
+
+        queryClient.setQueryData<WorkspaceSummary[] | undefined>(
+          workspaceQueryKey,
+          (previous) => {
+            const existing = previous ?? []
+            return [
+              nextWorkspace,
+              ...existing.filter(
+                (workspace) =>
+                  workspace.workspaceId !== createdWorkspace.workspaceId
+              ),
+            ]
+          }
+        )
+
         persistWorkspaceId(createdWorkspace.workspaceId)
         selectWorkspace(createdWorkspace.workspaceId)
         await queryClient.invalidateQueries({ queryKey: workspaceQueryKey })

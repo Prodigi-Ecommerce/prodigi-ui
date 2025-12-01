@@ -7,13 +7,11 @@ import {
 import {
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from '@/components/ui/sidebar.tsx'
 import { AppSidebar } from '@/components/AppSidebar/AppSidebar.tsx'
-import { WorkspaceSwitcher } from '@/components/Workspace/WorkspaceSwitcher'
 import { WorkspaceProvider } from '@/contexts/WorkspaceContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { Loader2, Menu } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { memo, useEffect } from 'react'
 
 const MemoizedAppSidebar = memo(AppSidebar)
@@ -47,23 +45,10 @@ const AuthLayout = () => {
   return (
     <WorkspaceProvider>
       <SidebarProvider defaultOpen={false}>
-        <div className="flex min-h-screen w-full">
+        <div className="flex min-h-screen w-full bg-gradient-to-br from-primary/10 via-secondary/5 to-background">
           <MemoizedAppSidebar />
           <SidebarInset className="transition-all duration-300 ease-in-out flex-1 relative">
-            <header className="absolute top-0 left-0 right-0 z-40 border-b border-border bg-background/80 backdrop-blur-md h-[52px]">
-              <div className="flex items-center gap-3 px-4 sm:px-5 py-2 h-full">
-                <SidebarTrigger className="hover:bg-accent rounded-md p-2 transition-colors text-primary">
-                  <Menu className="h-5 w-5" />
-                </SidebarTrigger>
-                <h1 className="text-lg font-semibold flex-1 text-foreground truncate">
-                  {title}
-                </h1>
-                <WorkspaceSwitcher />
-              </div>
-            </header>
-
-            <main className="min-h-screen pt-[52px] relative overflow-hidden bg-background">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-secondary/5 to-background"></div>
+            <main className="min-h-screen relative overflow-hidden">
               <div className="relative z-10">
                 <Outlet />
               </div>
