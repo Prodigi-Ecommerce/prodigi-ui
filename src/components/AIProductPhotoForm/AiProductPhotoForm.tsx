@@ -48,7 +48,7 @@ export function AiProductPhotoForm() {
   const { selectedWorkspaceId } = useWorkspaceContext()
   const { user, accessToken } = useAuth()
   const authHeaders = useMemo(
-    () => (user && accessToken ? { userId: user.id, accessToken } : null),
+    () => (accessToken ? { accessToken } : null),
     [user, accessToken]
   )
   const sectionTitleClass =
@@ -123,7 +123,13 @@ export function AiProductPhotoForm() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center pt-[10vh] pb-20 px-4">
+    <div className="min-h-screen flex flex-col items-center pt-16 pb-20 px-4">
+      <div className="w-full max-w-4xl mx-auto mb-8 text-center">
+        <h1 className="text-3xl font-bold">Generate</h1>
+        <p className="text-sm text-muted-foreground">
+          Upload images and create a new project in your selected workspace.
+        </p>
+      </div>
       <div className="grid w-full max-w-lg gap-5 bg-card text-card-foreground rounded-lg shadow-lg shadow-primary/20 p-6 border border-border">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
