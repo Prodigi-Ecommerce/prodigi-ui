@@ -25,7 +25,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
@@ -69,7 +69,7 @@ const navItems = [
 ]
 
 export function AppSidebar() {
-  const { toggleSidebar, state, isMobile } = useSidebar()
+  const { state, isMobile } = useSidebar()
   const pathname = useRouterState({
     select: (routerState) => routerState.location.pathname,
   })
@@ -82,7 +82,6 @@ export function AppSidebar() {
     selectedWorkspaceId,
     selectWorkspace,
     createWorkspace,
-    refreshWorkspaces,
     isLoading: workspacesLoading,
     isCreating: workspaceCreating,
     error: workspaceError,
