@@ -1,9 +1,4 @@
-import {
-  createFileRoute,
-  Outlet,
-  useMatches,
-  useNavigate,
-} from '@tanstack/react-router'
+import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
 import {
   SidebarInset,
   SidebarProvider,
@@ -19,11 +14,6 @@ const MemoizedAppSidebar = memo(AppSidebar)
 const AuthLayout = () => {
   const { user, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
-  const matches = useMatches()
-  const currentRoute = matches[matches.length - 1]
-  const title =
-    (currentRoute?.staticData as { title?: string })?.title || 'Dashboard'
-
   useEffect(() => {
     if (!authLoading && !user) {
       void navigate({ to: '/login', replace: true })
