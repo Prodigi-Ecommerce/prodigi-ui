@@ -13,7 +13,6 @@ import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
-import { Route as AuthGenerateRouteImport } from './routes/_auth/generate'
 import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
 import { Route as AuthProjectsProjectIdRouteImport } from './routes/_auth/projects/$projectId'
 
@@ -35,11 +34,6 @@ const PublicLoginRoute = PublicLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => PublicRoute,
 } as any)
-const AuthGenerateRoute = AuthGenerateRouteImport.update({
-  id: '/generate',
-  path: '/generate',
-  getParentRoute: () => AuthRoute,
-} as any)
 const AuthDashboardRoute = AuthDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -53,14 +47,12 @@ const AuthProjectsProjectIdRoute = AuthProjectsProjectIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthDashboardRoute
-  '/generate': typeof AuthGenerateRoute
   '/login': typeof PublicLoginRoute
   '/': typeof PublicIndexRoute
   '/projects/$projectId': typeof AuthProjectsProjectIdRoute
 }
 export interface FileRoutesByTo {
   '/dashboard': typeof AuthDashboardRoute
-  '/generate': typeof AuthGenerateRoute
   '/login': typeof PublicLoginRoute
   '/': typeof PublicIndexRoute
   '/projects/$projectId': typeof AuthProjectsProjectIdRoute
@@ -70,27 +62,20 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
   '/_auth/dashboard': typeof AuthDashboardRoute
-  '/_auth/generate': typeof AuthGenerateRoute
   '/_public/login': typeof PublicLoginRoute
   '/_public/': typeof PublicIndexRoute
   '/_auth/projects/$projectId': typeof AuthProjectsProjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/dashboard'
-    | '/generate'
-    | '/login'
-    | '/'
-    | '/projects/$projectId'
+  fullPaths: '/dashboard' | '/login' | '/' | '/projects/$projectId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/dashboard' | '/generate' | '/login' | '/' | '/projects/$projectId'
+  to: '/dashboard' | '/login' | '/' | '/projects/$projectId'
   id:
     | '__root__'
     | '/_auth'
     | '/_public'
     | '/_auth/dashboard'
-    | '/_auth/generate'
     | '/_public/login'
     | '/_public/'
     | '/_auth/projects/$projectId'
@@ -131,13 +116,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicLoginRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_auth/generate': {
-      id: '/_auth/generate'
-      path: '/generate'
-      fullPath: '/generate'
-      preLoaderRoute: typeof AuthGenerateRouteImport
-      parentRoute: typeof AuthRoute
-    }
     '/_auth/dashboard': {
       id: '/_auth/dashboard'
       path: '/dashboard'
@@ -157,13 +135,11 @@ declare module '@tanstack/react-router' {
 
 interface AuthRouteChildren {
   AuthDashboardRoute: typeof AuthDashboardRoute
-  AuthGenerateRoute: typeof AuthGenerateRoute
   AuthProjectsProjectIdRoute: typeof AuthProjectsProjectIdRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthDashboardRoute: AuthDashboardRoute,
-  AuthGenerateRoute: AuthGenerateRoute,
   AuthProjectsProjectIdRoute: AuthProjectsProjectIdRoute,
 }
 

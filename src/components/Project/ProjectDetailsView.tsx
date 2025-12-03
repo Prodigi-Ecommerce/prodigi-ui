@@ -8,6 +8,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { AspectRatio } from '@/components/ui/aspect-ratio'
 import type {
   ProjectDetail,
   ProjectInputImage,
@@ -56,8 +57,8 @@ export function ProjectDetailsView({
   }, [project])
 
   return (
-    <div className="space-y-10 max-w-6xl mx-auto">
-      <header className="flex flex-col gap-8 from-background via-card to-background pt-8">
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <header className="flex flex-col gap-6 from-background via-card to-background pt-4">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -68,17 +69,7 @@ export function ProjectDetailsView({
                 {project.name}
               </h1>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <MetadataItem
-                label="Project ID"
-                value={project.projectId}
-                mono
-              />
-              <MetadataItem
-                label="Workspace ID"
-                value={project.workspaceId}
-                mono
-              />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <MetadataItem
                 label="Created"
                 value={formatDate(project.createdAt)}
@@ -97,9 +88,9 @@ export function ProjectDetailsView({
               />
             </div>
           </div>
-          <div className="flex flex-col gap-3 rounded-2xl bg-primary/5 p-5 shadow-inner shadow-primary/10">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+          <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                 Output bundle
               </p>
               <p className="text-sm text-muted-foreground">
@@ -126,16 +117,16 @@ export function ProjectDetailsView({
       </header>
 
       <ProjectImageSection
-        title="Input images"
-        images={project.inputImages}
-        kind="input"
-      />
-
-      <ProjectImageSection
         title="Generated images"
         images={project.outputImages}
         kind="output"
         onDownloadImage={onDownloadOutputImage}
+      />
+
+      <ProjectImageSection
+        title="Input images"
+        images={project.inputImages}
+        kind="input"
       />
     </div>
   )
@@ -218,26 +209,28 @@ const ProjectImageCard = ({
   const hasDownload = Boolean(downloadUrl) && kind === 'output'
 
   return (
-    <Card className="group overflow-hidden">
+    <Card className="group overflow-hidden p-0">
       <Dialog>
         <DialogTrigger asChild>
           <button
             type="button"
-            className="relative aspect-square bg-muted w-full cursor-zoom-in"
+            className="relative bg-muted w-full cursor-zoom-in"
           >
-            {downloadUrl ? (
-              <img
-                src={downloadUrl}
-                alt={`${typeLabel} ${image.imageId}`}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                loading="lazy"
-                decoding="async"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center p-4 text-center text-xs text-muted-foreground">
-                Preview unavailable
-              </div>
-            )}
+            <AspectRatio ratio={4 / 5} className="overflow-hidden">
+              {downloadUrl ? (
+                <img
+                  src={downloadUrl}
+                  alt={`${typeLabel} ${image.imageId}`}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                  Preview unavailable
+                </div>
+              )}
+            </AspectRatio>
 
             <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/70 via-transparent to-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
               <div className="flex items-start justify-between p-3">
@@ -292,13 +285,10 @@ const ProjectImageCard = ({
           )}
         </DialogContent>
       </Dialog>
-      <CardContent className="space-y-1 p-4">
-        <p className="font-mono text-xs break-all">{image.imageId}</p>
-        {'s3Key' in image && image.s3Key && (
-          <p className="text-xs text-muted-foreground break-all">
-            {image.s3Key}
-          </p>
-        )}
+      <CardContent className="space-y-1 p-3 border-t">
+        <p className="text-xs text-muted-foreground">
+          {kind === 'output' ? 'Output' : 'Input'} image
+        </p>
       </CardContent>
     </Card>
   )
