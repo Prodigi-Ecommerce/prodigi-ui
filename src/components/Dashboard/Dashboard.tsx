@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Select,
   SelectContent,
@@ -529,6 +530,9 @@ type PreviewTileProps = {
 }
 
 const PreviewTile = ({ project }: PreviewTileProps) => {
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
+
   const useOutputs =
     project.status === 'COMPLETE' && project.outputImages.length > 0
       ? true
@@ -573,18 +577,35 @@ const PreviewTile = ({ project }: PreviewTileProps) => {
       ? firstImage.imageId
       : 'preview'
 
+  useEffect(() => {
+    setImageLoaded(false)
+    setImageError(false)
+  }, [src])
+
   return (
-    <div className="h-full w-full">
-      {src ? (
-        <img
-          src={src}
-          alt={altText}
-          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground text-sm">
+    <div className="relative h-full w-full overflow-hidden bg-muted">
+      {!src || imageError ? (
+        <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">
           Preview unavailable
         </div>
+      ) : (
+        <>
+          {!imageLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Spinner className="h-6 w-6 text-muted-foreground" />
+            </div>
+          )}
+          <img
+            src={src}
+            alt={altText}
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageError(true)}
+            className={cn(
+              'h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]',
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            )}
+          />
+        </>
       )}
     </div>
   )
