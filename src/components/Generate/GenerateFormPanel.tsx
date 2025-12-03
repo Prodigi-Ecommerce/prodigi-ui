@@ -43,9 +43,13 @@ const formSchema = z.object({
 
 type GenerateFormPanelProps = {
   className?: string
+  onProjectCreated?: (projectId: string) => void
 }
 
-export function GenerateFormPanel({ className }: GenerateFormPanelProps) {
+export function GenerateFormPanel({
+  className,
+  onProjectCreated,
+}: GenerateFormPanelProps) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [previews, setPreviews] = useState<string[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -98,14 +102,16 @@ export function GenerateFormPanel({ className }: GenerateFormPanelProps) {
 
     setIsProcessing(true)
     setSubmitError(null)
+    let createdProjectId: string | null = null
     try {
       const files = values.pictures
-      await processImages({
+      const result = await processImages({
         files,
         projectName: values.projectName,
         workspaceId: selectedWorkspaceId,
         auth: authHeaders,
       })
+      createdProjectId = result.projectId
       form.reset({
         projectName: '',
         pictures: [],
@@ -118,6 +124,10 @@ export function GenerateFormPanel({ className }: GenerateFormPanelProps) {
       )
     } finally {
       setIsProcessing(false)
+    }
+
+    if (createdProjectId) {
+      onProjectCreated?.(createdProjectId)
     }
   }
 
