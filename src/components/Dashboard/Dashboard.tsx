@@ -30,7 +30,7 @@ import {
   ArrowUpRight,
   ArrowDownToLine,
 } from 'lucide-react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { GenerateFormPanel } from '@/components/Generate/GenerateFormPanel'
 import { cn } from '@/lib/utils'
 
@@ -275,10 +275,6 @@ export function Dashboard() {
   const resetFilters = () => {
     setStatusFilter('ALL')
     setNameFilter('')
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString()
   }
 
   const sectionTitleClass =
@@ -528,57 +524,6 @@ export function Dashboard() {
   )
 }
 
-interface PreviewGalleryProps {
-  title: string
-  images: Array<ProjectInputImage | ProjectOutputImage>
-  previewCount?: number
-}
-
-const PreviewGallery = ({
-  title,
-  images,
-  previewCount = 4,
-}: PreviewGalleryProps) => {
-  const previews = images.slice(0, previewCount)
-  const remainingCount = Math.max(images.length - previews.length, 0)
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {remainingCount > 0 && (
-          <span className="text-xs text-muted-foreground">
-            +{remainingCount} more
-          </span>
-        )}
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {previews.map((img) => (
-          <AspectRatio
-            key={img.imageId}
-            ratio={4 / 5}
-            className="relative overflow-hidden rounded-lg border bg-muted"
-          >
-            {img.downloadUrl ? (
-              <img
-                src={img.downloadUrl}
-                alt={img.imageId}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center p-3 text-center text-xs text-muted-foreground">
-                No preview
-              </div>
-            )}
-          </AspectRatio>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 type PreviewTileProps = {
   project: ProjectSummary
 }
@@ -604,19 +549,36 @@ const PreviewTile = ({ project }: PreviewTileProps) => {
   }
 
   const firstImage = imagesToShow[0]
-  const src =
-    'downloadUrl' in firstImage && firstImage.downloadUrl
-      ? firstImage.downloadUrl
-      : 'url' in firstImage
-        ? firstImage.url
-        : ''
+  const src = (() => {
+    if (
+      'downloadUrl' in firstImage &&
+      typeof firstImage.downloadUrl === 'string' &&
+      firstImage.downloadUrl.length > 0
+    ) {
+      return firstImage.downloadUrl
+    }
+
+    if (
+      'url' in firstImage &&
+      typeof (firstImage as { url?: string }).url === 'string' &&
+      (firstImage as { url?: string }).url
+    ) {
+      return (firstImage as { url?: string }).url as string
+    }
+
+    return ''
+  })()
+  const altText =
+    typeof firstImage.imageId === 'string' && firstImage.imageId.length > 0
+      ? firstImage.imageId
+      : 'preview'
 
   return (
     <div className="h-full w-full">
       {src ? (
         <img
           src={src}
-          alt={firstImage.imageId ?? 'preview'}
+          alt={altText}
           className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
         />
       ) : (
