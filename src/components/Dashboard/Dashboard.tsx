@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
 import {
   Select,
   SelectContent,
@@ -34,6 +33,8 @@ import {
 import { useNavigate } from '@tanstack/react-router'
 import { GenerateFormPanel } from '@/components/Generate/GenerateFormPanel'
 import { cn } from '@/lib/utils'
+import { PreviewTile } from './components/PreviewTile/PreviewTile'
+import JSZip from 'jszip'
 
 const statusColors: Record<ProjectStatus, string> = {
   DRAFT: 'bg-gray-500',
@@ -87,107 +88,6 @@ const buildFilename = (
   }
 
   return `${safeBase}.${extension}`
-}
-
-const fetchArrayBuffer = async (url: string) => {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error('Failed to fetch file')
-  }
-  return response.arrayBuffer()
-}
-
-const crcTable = new Uint32Array(256).map((_, index) => {
-  let c = index
-  for (let k = 0; k < 8; k += 1) {
-    c = (c & 1) ? 0xedb88320 ^ (c >>> 1) : c >>> 1
-  }
-  return c >>> 0
-})
-
-const crc32 = (data: Uint8Array) => {
-  let crc = 0xffffffff
-  for (let i = 0; i < data.length; i += 1) {
-    const byte = data[i]
-    crc = (crc >>> 8) ^ crcTable[(crc ^ byte) & 0xff]
-  }
-  return (crc ^ 0xffffffff) >>> 0
-}
-
-const textEncoder = new TextEncoder()
-
-const createZipBlob = async (
-  files: Array<{ filename: string; url: string }>
-) => {
-  const fileChunks: Array<Uint8Array | Uint8Array> = []
-  const centralChunks: Uint8Array[] = []
-  let offset = 0
-  let centralDirectorySize = 0
-
-  for (const file of files) {
-    const dataBuffer = await fetchArrayBuffer(file.url)
-    const data = new Uint8Array(dataBuffer)
-    const crc = crc32(data)
-    const nameBytes = textEncoder.encode(file.filename)
-
-    const localHeader = new Uint8Array(30 + nameBytes.length)
-    const localView = new DataView(localHeader.buffer)
-    localView.setUint32(0, 0x04034b50, true)
-    localView.setUint16(4, 20, true)
-    localView.setUint16(6, 0, true)
-    localView.setUint16(8, 0, true)
-    localView.setUint16(10, 0, true)
-    localView.setUint16(12, 0, true)
-    localView.setUint32(14, crc, true)
-    localView.setUint32(18, data.length, true)
-    localView.setUint32(22, data.length, true)
-    localView.setUint16(26, nameBytes.length, true)
-    localView.setUint16(28, 0, true)
-    localHeader.set(nameBytes, 30)
-
-    fileChunks.push(localHeader, data)
-
-    const centralHeader = new Uint8Array(46 + nameBytes.length)
-    const centralView = new DataView(centralHeader.buffer)
-    centralView.setUint32(0, 0x02014b50, true)
-    centralView.setUint16(4, 20, true)
-    centralView.setUint16(6, 20, true)
-    centralView.setUint16(8, 0, true)
-    centralView.setUint16(10, 0, true)
-    centralView.setUint16(12, 0, true)
-    centralView.setUint16(14, 0, true)
-    centralView.setUint32(16, crc, true)
-    centralView.setUint32(20, data.length, true)
-    centralView.setUint32(24, data.length, true)
-    centralView.setUint16(28, nameBytes.length, true)
-    centralView.setUint16(30, 0, true)
-    centralView.setUint16(32, 0, true)
-    centralView.setUint16(34, 0, true)
-    centralView.setUint16(36, 0, true)
-    centralView.setUint32(38, 0, true)
-    centralView.setUint32(42, offset, true)
-    centralHeader.set(nameBytes, 46)
-
-    centralChunks.push(centralHeader)
-    centralDirectorySize += centralHeader.length
-
-    offset += localHeader.length + data.length
-  }
-
-  const endRecord = new Uint8Array(22)
-  const endView = new DataView(endRecord.buffer)
-  endView.setUint32(0, 0x06054b50, true)
-  endView.setUint16(4, 0, true)
-  endView.setUint16(6, 0, true)
-  endView.setUint16(8, centralChunks.length, true)
-  endView.setUint16(10, centralChunks.length, true)
-  endView.setUint32(12, centralDirectorySize, true)
-  endView.setUint32(16, offset, true)
-  endView.setUint16(20, 0, true)
-
-  return new Blob([...fileChunks, ...centralChunks, endRecord], {
-    type: 'application/zip',
-  })
 }
 
 const triggerDownload = (blob: Blob, filename: string) => {
@@ -299,12 +199,23 @@ export function Dashboard() {
     })
 
     try {
-      const files = downloadableOutputs.map((image) => ({
-        filename: buildFilename(image, 'output'),
-        url: image.downloadUrl!,
-      }))
+      const zip = new JSZip()
+      await Promise.all(
+        downloadableOutputs.map(async (image) => {
+          const response = await fetch(image.downloadUrl!, {
+            method: 'GET',
+            credentials: 'omit',
+            cache: 'no-store',
+          })
+          if (!response.ok) {
+            throw new Error('Failed to fetch file')
+          }
+          const buffer = await response.arrayBuffer()
+          zip.file(buildFilename(image, 'output'), buffer)
+        })
+      )
 
-      const zipBlob = await createZipBlob(files)
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
       const safeProjectName = project.name.replace(/[^a-zA-Z0-9-_\.]/g, '_')
       const filename =
         safeProjectName.length > 0
@@ -340,7 +251,15 @@ export function Dashboard() {
   return (
     <div className="min-h-screen p-4 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-8">
-        <GenerateFormPanel className="mx-auto" />
+        <GenerateFormPanel
+          className="mx-auto"
+          onProjectCreated={(projectId) =>
+            navigate({
+              to: '/projects/$projectId',
+              params: { projectId },
+            })
+          }
+        />
 
         <div className="flex flex-col gap-4">
           <div className="space-y-2 text-center sm:text-left">
@@ -521,92 +440,6 @@ export function Dashboard() {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-type PreviewTileProps = {
-  project: ProjectSummary
-}
-
-const PreviewTile = ({ project }: PreviewTileProps) => {
-  const [imageLoaded, setImageLoaded] = useState(false)
-  const [imageError, setImageError] = useState(false)
-
-  const useOutputs =
-    project.status === 'COMPLETE' && project.outputImages.length > 0
-      ? true
-      : project.outputImages.length > 0
-
-  const imagesToShow = useOutputs
-    ? project.outputImages
-    : project.inputImages.length > 0
-      ? project.inputImages
-      : []
-
-  if (imagesToShow.length === 0) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground text-sm">
-        No images yet
-      </div>
-    )
-  }
-
-  const firstImage = imagesToShow[0]
-  const src = (() => {
-    if (
-      'downloadUrl' in firstImage &&
-      typeof firstImage.downloadUrl === 'string' &&
-      firstImage.downloadUrl.length > 0
-    ) {
-      return firstImage.downloadUrl
-    }
-
-    if (
-      'url' in firstImage &&
-      typeof (firstImage as { url?: string }).url === 'string' &&
-      (firstImage as { url?: string }).url
-    ) {
-      return (firstImage as { url?: string }).url as string
-    }
-
-    return ''
-  })()
-  const altText =
-    typeof firstImage.imageId === 'string' && firstImage.imageId.length > 0
-      ? firstImage.imageId
-      : 'preview'
-
-  useEffect(() => {
-    setImageLoaded(false)
-    setImageError(false)
-  }, [src])
-
-  return (
-    <div className="relative h-full w-full overflow-hidden bg-muted">
-      {!src || imageError ? (
-        <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">
-          Preview unavailable
-        </div>
-      ) : (
-        <>
-          {!imageLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Spinner className="h-6 w-6 text-muted-foreground" />
-            </div>
-          )}
-          <img
-            src={src}
-            alt={altText}
-            onLoad={() => setImageLoaded(true)}
-            onError={() => setImageError(true)}
-            className={cn(
-              'h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]',
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            )}
-          />
-        </>
-      )}
     </div>
   )
 }
