@@ -16,8 +16,6 @@ import {
 import {
   LayoutDashboard,
   Grid2x2,
-  Sparkles,
-  Wand2,
   Sparkle,
   LogOut,
   ChevronsUpDown,
@@ -58,13 +56,6 @@ const navItems = [
     url: '/dashboard',
     icon: LayoutDashboard,
     collapsedIcon: Grid2x2,
-  },
-  {
-    title: 'Generate',
-    description: 'Create new visuals',
-    url: '/generate',
-    icon: Sparkles,
-    collapsedIcon: Wand2,
   },
 ]
 

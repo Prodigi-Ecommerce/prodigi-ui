@@ -125,18 +125,7 @@ export function GenerateFormPanel({ className }: GenerateFormPanelProps) {
     'text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground'
 
   return (
-    <div
-      className={cn(
-        'grid w-full max-w-xl gap-4 bg-card text-card-foreground rounded-2xl shadow-lg shadow-primary/10 p-5 border border-border',
-        className
-      )}
-    >
-      <div className="text-center space-y-1">
-        <h1 className="text-2xl font-semibold">Generate</h1>
-        <p className="text-xs text-muted-foreground">
-          Upload images and create a new project in your selected workspace.
-        </p>
-      </div>
+    <div className={cn('w-full max-w-xl', className)}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
@@ -229,7 +218,7 @@ export function GenerateFormPanel({ className }: GenerateFormPanelProps) {
             className="w-full"
             disabled={isProcessing || !selectedWorkspaceId || !authHeaders}
           >
-            {isProcessing ? 'Processing...' : 'Create project'}
+            {isProcessing ? 'Processing...' : 'Generate'}
           </Button>
         </form>
       </Form>
