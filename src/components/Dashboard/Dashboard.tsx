@@ -24,6 +24,8 @@ import type {
 } from '@/types/projectsApi'
 import { Filter, ChevronDown, ChevronUp, ArrowUpRight } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
+import { GenerateFormPanel } from '@/components/Generate/GenerateFormPanel'
+import { cn } from '@/lib/utils'
 
 const statusColors: Record<ProjectStatus, string> = {
   DRAFT: 'bg-gray-500',
@@ -128,10 +130,12 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        <GenerateFormPanel className="mx-auto" />
+
         <div className="flex flex-col gap-4">
-          <div className="space-y-2">
+          <div className="space-y-2 text-center sm:text-left">
             <h1 className="text-3xl font-bold">Projects</h1>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -233,70 +237,32 @@ export function Dashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-5">
+          <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 max-w-7xl mx-auto">
             {filteredProjects.map((project) => (
               <Link
                 key={project.projectId}
                 to="/projects/$projectId"
                 params={{ projectId: project.projectId }}
-                className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+                className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 h-full"
               >
-                <Card className="overflow-hidden transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/50 group-hover:shadow-lg group-active:translate-y-0">
-                  <CardHeader className="space-y-4">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Badge className={statusColors[project.status]}>
-                            {project.status}
-                          </Badge>
-                          <h2 className="text-xl font-semibold transition-colors group-hover:text-primary">
-                            {project.name}
-                          </h2>
-                        </div>
-                        <p className="font-mono text-xs text-muted-foreground break-all">
-                          {project.projectId}
-                        </p>
-                        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                          <span>Created: {formatDate(project.createdAt)}</span>
-                          <span>Updated: {formatDate(project.updatedAt)}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground transition-all group-hover:text-primary">
-                        <span>Open project</span>
-                        <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                      </div>
+                <Card className="h-full overflow-hidden transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/50 group-hover:shadow-lg group-active:translate-y-0 py-0 gap-0">
+                  <div className="aspect-square overflow-hidden">
+                    <PreviewTile project={project} />
+                  </div>
+                  <CardHeader className="space-y-3 px-4 py-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Badge className={statusColors[project.status]}>
+                        {project.status}
+                      </Badge>
+                      <h2 className="text-lg font-semibold transition-colors group-hover:text-primary">
+                        {project.name}
+                      </h2>
                     </div>
-                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                      <span>{project.inputImages.length} input images</span>
-                      <span>•</span>
-                      <span>{project.outputImages.length} generated images</span>
-                      <span>•</span>
-                      <span className="font-mono">
-                        Workspace: {project.workspaceId}
-                      </span>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground transition-all group-hover:text-primary">
+                      <span>Open project</span>
+                      <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-6">
-                    {project.inputImages.length > 0 && (
-                      <PreviewGallery
-                        title="Latest input images"
-                        images={project.inputImages}
-                      />
-                    )}
-                    {project.outputImages.length > 0 && (
-                      <PreviewGallery
-                        title="Latest generated images"
-                        images={project.outputImages}
-                      />
-                    )}
-                    {project.inputImages.length === 0 &&
-                      project.outputImages.length === 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          No images uploaded for this project yet.
-                        </p>
-                      )}
-                  </CardContent>
                 </Card>
               </Link>
             ))}
@@ -353,6 +319,55 @@ const PreviewGallery = ({
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+type PreviewTileProps = {
+  project: ProjectSummary
+}
+
+const PreviewTile = ({ project }: PreviewTileProps) => {
+  const useOutputs =
+    project.status === 'COMPLETE' && project.outputImages.length > 0
+      ? true
+      : project.outputImages.length > 0
+
+  const imagesToShow = useOutputs
+    ? project.outputImages
+    : project.inputImages.length > 0
+      ? project.inputImages
+      : []
+
+  if (imagesToShow.length === 0) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground text-sm">
+        No images yet
+      </div>
+    )
+  }
+
+  const firstImage = imagesToShow[0]
+  const src =
+    'downloadUrl' in firstImage && firstImage.downloadUrl
+      ? firstImage.downloadUrl
+      : 'url' in firstImage
+        ? firstImage.url
+        : ''
+
+  return (
+    <div className="h-full w-full">
+      {src ? (
+        <img
+          src={src}
+          alt={firstImage.imageId ?? 'preview'}
+          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground text-sm">
+          Preview unavailable
+        </div>
+      )}
     </div>
   )
 }
