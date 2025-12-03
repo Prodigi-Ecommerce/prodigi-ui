@@ -471,7 +471,7 @@ export function Dashboard() {
                   <PreviewTile project={project} />
                 </AspectRatio>
                 <CardHeader className="space-y-3 px-4 py-4">
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-col gap-2 items-start">
                     <Badge className={statusColors[project.status]}>
                       {project.status}
                     </Badge>
