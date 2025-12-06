@@ -8,6 +8,7 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from '@/components/ui/carousel'
 import { getPreviewImages } from './PreviewTile.utils'
 
@@ -16,8 +17,11 @@ type PreviewTileProps = {
 }
 
 export const PreviewTile = ({ project }: PreviewTileProps) => {
+  const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null)
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
   const [erroredImages, setErroredImages] = useState<Record<string, boolean>>({})
+  const [canScrollPrev, setCanScrollPrev] = useState(false)
+  const [canScrollNext, setCanScrollNext] = useState(false)
 
   const images = useMemo(() => getPreviewImages(project), [project])
 
@@ -25,6 +29,24 @@ export const PreviewTile = ({ project }: PreviewTileProps) => {
     setLoadedImages({})
     setErroredImages({})
   }, [images.map((image) => image.src).join('|')])
+
+  useEffect(() => {
+    if (!carouselApi) return
+
+    const update = () => {
+      setCanScrollPrev(carouselApi.canScrollPrev())
+      setCanScrollNext(carouselApi.canScrollNext())
+    }
+
+    update()
+    carouselApi.on('select', update)
+    carouselApi.on('reInit', update)
+
+    return () => {
+      carouselApi.off('select', update)
+      carouselApi.off('reInit', update)
+    }
+  }, [carouselApi])
 
   if (images.length === 0) {
     return (
@@ -37,8 +59,8 @@ export const PreviewTile = ({ project }: PreviewTileProps) => {
   const hasMultiple = images.length > 1
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-muted">
-      <Carousel className="h-full" opts={{ loop: false }}>
+    <div className="group relative h-full w-full overflow-hidden bg-muted">
+      <Carousel className="h-full" opts={{ loop: false }} setApi={setCarouselApi}>
         <CarouselContent className="h-full">
           {images.map((image, index) => {
             const loaded = loadedImages[image.src]
@@ -86,8 +108,26 @@ export const PreviewTile = ({ project }: PreviewTileProps) => {
 
         {hasMultiple && (
           <>
-            <CarouselPrevious className="z-10 opacity-0 pointer-events-none transition-opacity duration-200 group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto" />
-            <CarouselNext className="z-10 opacity-0 pointer-events-none transition-opacity duration-200 group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto" />
+            {canScrollPrev && (
+              <CarouselPrevious
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  carouselApi?.scrollPrev()
+                }}
+                className="pointer-events-none z-10 left-3 top-1/2 -translate-y-1/2 opacity-0 bg-background/85 text-foreground shadow-sm transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+              />
+            )}
+            {canScrollNext && (
+              <CarouselNext
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  carouselApi?.scrollNext()
+                }}
+                className="pointer-events-none z-10 right-3 top-1/2 -translate-y-1/2 opacity-0 bg-background/85 text-foreground shadow-sm transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+              />
+            )}
           </>
         )}
       </Carousel>
