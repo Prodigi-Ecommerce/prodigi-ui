@@ -84,3 +84,19 @@ export const getProject = async ({
   )
   return response.data
 }
+
+interface DeleteProjectArgs {
+  workspaceId: string
+  projectId: string
+  auth: AuthHeaderParams
+}
+
+export const deleteProject = async ({
+  workspaceId,
+  projectId,
+  auth,
+}: DeleteProjectArgs) => {
+  await projectsApiClient.delete(`/projects/${projectId}`, {
+    headers: getWorkspaceHeaders(workspaceId, auth),
+  })
+}

@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { WorkspaceSummary } from '@/types/workspacesApi'
 import {
   createWorkspace as createWorkspaceRequest,
+  deleteWorkspace as deleteWorkspaceRequest,
   fetchWorkspaces,
 } from '@/services/workspacesService'
 import { useAuth } from '@/contexts/AuthContext'
@@ -21,8 +22,10 @@ interface WorkspaceContextValue {
   selectWorkspace: (workspaceId: string | null) => void
   refreshWorkspaces: (preferredWorkspaceId?: string) => Promise<void>
   createWorkspace: (name: string) => Promise<void>
+  deleteWorkspace: (workspaceId: string) => Promise<void>
   isLoading: boolean
   isCreating: boolean
+  isDeletingWorkspaceId: string | null
   error: string | null
 }
 
@@ -56,6 +59,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     null
   )
   const [isCreating, setIsCreating] = useState(false)
+  const [isDeletingWorkspaceId, setIsDeletingWorkspaceId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const { user, accessToken } = useAuth()
   const authHeaders = useMemo(
@@ -199,6 +203,54 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     [authHeaders, queryClient, selectWorkspace, workspaceQueryKey]
   )
 
+  const deleteWorkspace = useCallback(
+    async (workspaceId: string) => {
+      if (!authHeaders) {
+        setActionError('You must be signed in to manage workspaces')
+        return
+      }
+
+      setIsDeletingWorkspaceId(workspaceId)
+      setActionError(null)
+
+      try {
+        await deleteWorkspaceRequest({ workspaceId, auth: authHeaders })
+
+        let nextWorkspaceId: string | null = null
+        queryClient.setQueryData<WorkspaceSummary[] | undefined>(
+          workspaceQueryKey,
+          (previous) => {
+            const existing = previous ?? []
+            const filtered = existing.filter(
+              (workspace) => workspace.workspaceId !== workspaceId
+            )
+            nextWorkspaceId = filtered[0]?.workspaceId ?? null
+            return filtered
+          }
+        )
+
+        if (selectedWorkspaceId === workspaceId) {
+          selectWorkspace(nextWorkspaceId)
+        }
+
+        await queryClient.invalidateQueries({ queryKey: workspaceQueryKey })
+      } catch (err) {
+        console.error('Failed to delete workspace', err)
+        setActionError('Failed to delete workspace')
+        throw err
+      } finally {
+        setIsDeletingWorkspaceId(null)
+      }
+    },
+    [
+      authHeaders,
+      queryClient,
+      selectWorkspace,
+      selectedWorkspaceId,
+      workspaceQueryKey,
+    ]
+  )
+
   const workspaceErrorMessage =
     workspaceQueryError instanceof Error
       ? workspaceQueryError.message
@@ -214,8 +266,10 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       selectWorkspace,
       refreshWorkspaces,
       createWorkspace,
+      deleteWorkspace,
       isLoading,
       isCreating,
+      isDeletingWorkspaceId,
       error,
     }),
     [
@@ -224,8 +278,10 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       selectWorkspace,
       refreshWorkspaces,
       createWorkspace,
+      deleteWorkspace,
       isLoading,
       isCreating,
+      isDeletingWorkspaceId,
       error,
     ]
   )

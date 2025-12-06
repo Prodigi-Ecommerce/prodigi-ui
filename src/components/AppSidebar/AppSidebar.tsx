@@ -11,7 +11,6 @@ import {
   SidebarTrigger,
   SidebarHeader,
   SidebarFooter,
-  SidebarGroupAction,
 } from '@/components/ui/sidebar'
 import {
   LayoutDashboard,
@@ -21,6 +20,7 @@ import {
   ChevronsUpDown,
   Plus,
   Loader2,
+  Trash2,
 } from 'lucide-react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -66,13 +66,17 @@ export function AppSidebar() {
   })
   const { signOut, user } = useAuth()
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [workspaceName, setWorkspaceName] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const {
     workspaces,
     selectedWorkspaceId,
     selectWorkspace,
     createWorkspace,
+    deleteWorkspace,
+    isDeletingWorkspaceId,
     isLoading: workspacesLoading,
     isCreating: workspaceCreating,
     error: workspaceError,
@@ -101,6 +105,24 @@ export function AppSidebar() {
       setWorkspaceDialogOpen(false)
     } catch {
       // surfaced via context
+    }
+  }
+
+  const selectedWorkspace = workspaces.find(
+    (workspace) => workspace.workspaceId === selectedWorkspaceId
+  )
+  const isDeletingSelected = isDeletingWorkspaceId === selectedWorkspaceId
+
+  const handleDeleteWorkspace = async () => {
+    if (!selectedWorkspace) {
+      return
+    }
+    setDeleteError(null)
+    try {
+      await deleteWorkspace(selectedWorkspace.workspaceId)
+      setDeleteDialogOpen(false)
+    } catch {
+      setDeleteError('Failed to delete workspace. Please try again.')
     }
   }
 
@@ -209,12 +231,35 @@ export function AppSidebar() {
               <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wide px-0">
                 Workspace
               </SidebarGroupLabel>
-              <SidebarGroupAction
-                aria-label="Add workspace"
-                onClick={() => setWorkspaceDialogOpen(true)}
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </SidebarGroupAction>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  aria-label="Delete workspace"
+                  disabled={
+                    !selectedWorkspaceId || isDeletingSelected || workspacesLoading
+                  }
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  {isDeletingSelected ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  aria-label="Add workspace"
+                  onClick={() => setWorkspaceDialogOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
             <SidebarGroupContent className="mt-3">
               <Select
@@ -329,6 +374,52 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarFooter>
       )}
+
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) {
+            setDeleteError(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete workspace</DialogTitle>
+            <DialogDescription>
+              This will permanently remove{' '}
+              <span className="font-medium text-foreground">
+                {selectedWorkspace?.name ?? 'this workspace'}
+              </span>{' '}
+              and all of its projects.
+            </DialogDescription>
+          </DialogHeader>
+          {(deleteError || workspaceError) && (
+            <p className="text-sm text-destructive">
+              {deleteError ?? workspaceError}
+            </p>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={isDeletingSelected}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteWorkspace}
+              disabled={!selectedWorkspace || isDeletingSelected}
+            >
+              {isDeletingSelected ? 'Deleting…' : 'Delete workspace'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={workspaceDialogOpen}
