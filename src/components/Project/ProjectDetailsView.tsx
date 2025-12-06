@@ -5,7 +5,7 @@ import type {
   ProjectInputImage,
   ProjectOutputImage,
 } from '@/types/projectsApi'
-import { Download } from 'lucide-react'
+import { Download, Trash2 } from 'lucide-react'
 import { useMemo } from 'react'
 import { ProjectImageSection } from './components/ProjectImageSection/ProjectImageSection'
 import { MetadataItem } from './components/MetadataItem/MetadataItem'
@@ -18,6 +18,8 @@ interface ProjectDetailsViewProps {
   onDownloadInputImage?: (image: ProjectInputImage) => void
   onDownloadAllOutputs: () => void
   isDownloadingAll: boolean
+  onDeleteProject: () => void
+  isDeleting: boolean
 }
 
 export function ProjectDetailsView({
@@ -26,6 +28,8 @@ export function ProjectDetailsView({
   onDownloadOutputImage,
   onDownloadInputImage,
   isDownloadingAll,
+  onDeleteProject,
+  isDeleting,
 }: ProjectDetailsViewProps) {
   const downloadableOutputCount = useMemo(() => {
     return project.outputImages.filter((image) => Boolean(image.downloadUrl))
@@ -64,30 +68,41 @@ export function ProjectDetailsView({
               />
             </div>
           </div>
-          <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                Output bundle
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {downloadableOutputCount > 0
-                  ? `${downloadableOutputCount} of ${project.outputImages.length} output images are ready to download.`
-                  : 'Outputs are not yet ready to download.'}
+          <div className="flex flex-col gap-3 lg:items-end">
+            <Button
+              variant="destructive"
+              onClick={onDeleteProject}
+              disabled={isDeleting}
+              className="gap-2 self-start lg:self-end"
+            >
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? 'Deleting…' : 'Delete project'}
+            </Button>
+            <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  Output bundle
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {downloadableOutputCount > 0
+                    ? `${downloadableOutputCount} of ${project.outputImages.length} output images are ready to download.`
+                    : 'Outputs are not yet ready to download.'}
+                </p>
+              </div>
+              <Button
+                onClick={onDownloadAllOutputs}
+                disabled={isDownloadingAll || downloadableOutputCount === 0}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {isDownloadingAll
+                  ? 'Bundling outputs…'
+                  : 'Download all outputs (.zip)'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Zips every generated image currently available.
               </p>
             </div>
-            <Button
-              onClick={onDownloadAllOutputs}
-              disabled={isDownloadingAll || downloadableOutputCount === 0}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              {isDownloadingAll
-                ? 'Bundling outputs…'
-                : 'Download all outputs (.zip)'}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Zips every generated image currently available.
-            </p>
           </div>
         </div>
       </header>

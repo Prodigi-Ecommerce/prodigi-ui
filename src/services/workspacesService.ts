@@ -16,6 +16,20 @@ export const fetchWorkspaces = async (auth: AuthHeaderParams) => {
   return response.data
 }
 
+interface DeleteWorkspaceArgs {
+  workspaceId: string
+  auth: AuthHeaderParams
+}
+
+export const deleteWorkspace = async ({
+  workspaceId,
+  auth,
+}: DeleteWorkspaceArgs) => {
+  await projectsApiClient.delete(`/workspaces/${workspaceId}`, {
+    headers: getUserHeaders(auth),
+  })
+}
+
 export const createWorkspace = async (name: string, auth: AuthHeaderParams) => {
   const response = await projectsApiClient.post<CreateWorkspaceResponse>(
     '/workspaces',

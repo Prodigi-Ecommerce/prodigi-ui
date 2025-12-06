@@ -142,3 +142,4 @@ vite.config.ts.timestamp-*
 
 # Tanstack router
 .tanstack/
+.DS_Store

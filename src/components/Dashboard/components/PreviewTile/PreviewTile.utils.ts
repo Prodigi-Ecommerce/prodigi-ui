@@ -4,8 +4,6 @@ import type {
   ProjectSummary,
 } from '@/types/projectsApi'
 
-export type FirstImageResult = { src: string; altText: string } | null
-
 const buildAltText = (image: ProjectInputImage | ProjectOutputImage) =>
   typeof image.imageId === 'string' && image.imageId.length > 0
     ? image.imageId
@@ -32,31 +30,19 @@ const resolveSrc = (
   return null
 }
 
-export const getFirstImage = (project: ProjectSummary): FirstImageResult => {
-  const useOutputs =
-    project.status === 'COMPLETE' && project.outputImages.length > 0
-      ? true
-      : project.outputImages.length > 0
+export const getPreviewImages = (project: ProjectSummary) => {
+  const useOutputs = project.outputImages.length > 0
+  const imagesToShow = useOutputs ? project.outputImages : project.inputImages
 
-  const imagesToShow = useOutputs
-    ? project.outputImages
-    : project.inputImages.length > 0
-      ? project.inputImages
-      : []
+  return imagesToShow
+    .map((image) => {
+      const src = resolveSrc(image)
+      if (!src) return null
 
-  if (imagesToShow.length === 0) {
-    return null
-  }
-
-  const firstImage = imagesToShow[0]
-  const src = resolveSrc(firstImage)
-
-  if (!src) {
-    return null
-  }
-
-  return {
-    src,
-    altText: buildAltText(firstImage),
-  }
+      return {
+        src,
+        altText: buildAltText(image),
+      }
+    })
+    .filter(Boolean) as { src: string; altText: string }[]
 }

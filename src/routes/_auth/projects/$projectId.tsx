@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { getProject } from '@/services/projectsService'
+import { deleteProject, getProject } from '@/services/projectsService'
 import type {
   ProjectDetail,
   ProjectInputImage,
@@ -115,6 +115,7 @@ const ProjectDetailsPage = () => {
   const { projectId } = Route.useParams()
   const { selectedWorkspaceId } = useWorkspaceContext()
   const { user, accessToken } = useAuth()
+  const navigate = useNavigate()
   const authHeaders = useMemo(
     () => (user && accessToken ? { userId: user.id, accessToken } : null),
     [user, accessToken]
@@ -124,6 +125,8 @@ const ProjectDetailsPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [isDownloadingAll, setIsDownloadingAll] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -212,6 +215,32 @@ const ProjectDetailsPage = () => {
       setDownloadError('Failed to download image. Please try again.')
     }
   }, [])
+
+  const handleDeleteProject = useCallback(async () => {
+    if (!selectedWorkspaceId || !authHeaders) {
+      setDeleteError(
+        'You must be signed in with a workspace selected to delete this project.'
+      )
+      return
+    }
+
+    setIsDeleting(true)
+    setDeleteError(null)
+
+    try {
+      await deleteProject({
+        workspaceId: selectedWorkspaceId,
+        projectId,
+        auth: authHeaders,
+      })
+      navigate({ to: '/dashboard' })
+    } catch (err) {
+      console.error('Failed to delete project', err)
+      setDeleteError('Unable to delete project. Please try again.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }, [authHeaders, navigate, projectId, selectedWorkspaceId])
 
   const handleDownloadAllOutputs = useCallback(async () => {
     if (!project || downloadableOutputs.length === 0) {
@@ -307,6 +336,13 @@ const ProjectDetailsPage = () => {
 
   return (
     <div className="space-y-6 pb-12 px-4 sm:px-6 lg:px-10">
+      {deleteError && (
+        <Card className="border-destructive/40 bg-destructive/10">
+          <CardContent className="py-4">
+            <p className="text-sm text-destructive">{deleteError}</p>
+          </CardContent>
+        </Card>
+      )}
       {downloadError && (
         <Card className="border-destructive/40 bg-destructive/10">
           <CardContent className="py-4">
@@ -320,6 +356,8 @@ const ProjectDetailsPage = () => {
         onDownloadOutputImage={handleDownloadOutputImage}
         onDownloadInputImage={handleDownloadInputImage}
         isDownloadingAll={isDownloadingAll}
+        onDeleteProject={handleDeleteProject}
+        isDeleting={isDeleting}
       />
     </div>
   )

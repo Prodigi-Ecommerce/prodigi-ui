@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2, Plus, RotateCw } from 'lucide-react'
+import { Loader2, Plus, RotateCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -28,7 +28,9 @@ interface WorkspaceSwitcherProps {
 
 export const WorkspaceSwitcher = ({ className }: WorkspaceSwitcherProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [workspaceName, setWorkspaceName] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const {
     workspaces,
@@ -36,12 +38,18 @@ export const WorkspaceSwitcher = ({ className }: WorkspaceSwitcherProps) => {
     selectWorkspace,
     createWorkspace,
     refreshWorkspaces,
+    deleteWorkspace,
     isLoading,
     isCreating,
+    isDeletingWorkspaceId,
     error,
   } = useWorkspaceContext()
 
   const hasWorkspaces = workspaces.length > 0
+  const selectedWorkspace = workspaces.find(
+    (workspace) => workspace.workspaceId === selectedWorkspaceId
+  )
+  const isDeletingSelected = isDeletingWorkspaceId === selectedWorkspaceId
   const placeholder = (() => {
     if (isLoading) {
       return 'Loading workspaces…'
@@ -76,6 +84,20 @@ export const WorkspaceSwitcher = ({ className }: WorkspaceSwitcherProps) => {
     await refreshWorkspaces(selectedWorkspaceId ?? undefined)
   }
 
+  const handleDeleteWorkspace = async () => {
+    if (!selectedWorkspace) {
+      return
+    }
+
+    setDeleteError(null)
+    try {
+      await deleteWorkspace(selectedWorkspace.workspaceId)
+      setIsDeleteDialogOpen(false)
+    } catch {
+      setDeleteError('Could not delete workspace. Please try again.')
+    }
+  }
+
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <div className="hidden text-xs font-medium text-muted-foreground sm:block">
@@ -108,6 +130,71 @@ export const WorkspaceSwitcher = ({ className }: WorkspaceSwitcherProps) => {
       >
         <RotateCw className="h-4 w-4" />
       </Button>
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open)
+          if (!open) {
+            setDeleteError(null)
+          }
+        }}
+      >
+        <DialogTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
+            disabled={
+              !selectedWorkspace || isLoading || Boolean(isDeletingWorkspaceId)
+            }
+            title={
+              selectedWorkspace ? 'Delete workspace' : 'No workspace selected'
+            }
+          >
+            {isDeletingSelected ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete workspace</DialogTitle>
+            <DialogDescription>
+              This will permanently remove{' '}
+              <span className="font-medium text-foreground">
+                {selectedWorkspace?.name ?? 'this workspace'}
+              </span>{' '}
+              and all of its projects.
+            </DialogDescription>
+          </DialogHeader>
+          {(deleteError || error) && (
+            <p className="text-sm text-destructive">
+              {deleteError ?? error}
+            </p>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeletingSelected}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteWorkspace}
+              disabled={!selectedWorkspace || isDeletingSelected}
+            >
+              {isDeletingSelected ? 'Deleting…' : 'Delete workspace'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
