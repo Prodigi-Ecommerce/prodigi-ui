@@ -19,7 +19,8 @@ export const ProjectImageCard = ({
   kind,
   onDownloadImage,
 }: ProjectImageCardProps) => {
-  const { downloadUrl } = image
+  const displayUrl = image.thumbnailDownloadUrl ?? image.downloadUrl
+  const downloadUrl = image.downloadUrl ?? image.thumbnailDownloadUrl
   const typeLabel = kind === 'input' ? 'Input' : 'Output'
   const hasDownload = Boolean(downloadUrl)
   const [imageLoaded, setImageLoaded] = useState(false)
@@ -28,7 +29,7 @@ export const ProjectImageCard = ({
   useEffect(() => {
     setImageLoaded(false)
     setImageError(false)
-  }, [downloadUrl])
+  }, [displayUrl])
 
   return (
     <Card className="group overflow-hidden p-0">
@@ -39,7 +40,7 @@ export const ProjectImageCard = ({
             className="relative bg-muted w-full cursor-zoom-in"
           >
             <AspectRatio ratio={4 / 5} className="overflow-hidden">
-              {!downloadUrl || imageError ? (
+              {!displayUrl || imageError ? (
                 <div className="flex h-full w-full items-center justify-center p-4 text-center text-xs text-muted-foreground">
                   Preview unavailable
                 </div>
@@ -51,7 +52,7 @@ export const ProjectImageCard = ({
                     </div>
                   )}
                   <img
-                    src={downloadUrl}
+                    src={displayUrl}
                     alt={`${typeLabel} ${image.imageId}`}
                     className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] ${
                       imageLoaded ? 'opacity-100' : 'opacity-0'
@@ -105,9 +106,9 @@ export const ProjectImageCard = ({
               {typeLabel} image • {image.imageId}
             </DialogTitle>
           </DialogHeader>
-          {downloadUrl ? (
+          {displayUrl ? (
             <img
-              src={downloadUrl}
+              src={displayUrl}
               alt={`${typeLabel} ${image.imageId}`}
               className="mx-auto max-h-[80vh] w-full max-w-[min(1200px,90vw)] rounded-md object-contain"
             />

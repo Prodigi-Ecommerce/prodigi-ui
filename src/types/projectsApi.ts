@@ -29,6 +29,8 @@ export interface CreateProjectResponse {
 export interface ProjectImage {
   imageId: string
   s3Key: string
+  thumbnailS3Key?: string
+  thumbnailDownloadUrl?: string
 }
 
 export interface ProjectOutputImage extends ProjectImage {

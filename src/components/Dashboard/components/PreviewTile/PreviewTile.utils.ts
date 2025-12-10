@@ -13,6 +13,14 @@ const resolveSrc = (
   image: ProjectInputImage | ProjectOutputImage
 ): string | null => {
   if (
+    'thumbnailDownloadUrl' in image &&
+    typeof image.thumbnailDownloadUrl === 'string' &&
+    image.thumbnailDownloadUrl.length > 0
+  ) {
+    return image.thumbnailDownloadUrl
+  }
+
+  if (
     'downloadUrl' in image &&
     typeof image.downloadUrl === 'string' &&
     image.downloadUrl.length > 0
