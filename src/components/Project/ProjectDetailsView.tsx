@@ -67,17 +67,19 @@ export function ProjectDetailsView({
                 value={String(project.outputImages.length)}
               />
             </div>
+            <div>
+              <Button
+                variant="ghost"
+                onClick={onDeleteProject}
+                disabled={isDeleting}
+                className="gap-2 text-destructive hover:text-destructive bg-transparent hover:bg-transparent focus-visible:ring-destructive/50"
+              >
+                <Trash2 className="h-4 w-4" />
+                {isDeleting ? 'Deleting…' : 'Delete project'}
+              </Button>
+            </div>
           </div>
           <div className="flex flex-col gap-3 lg:items-end">
-            <Button
-              variant="destructive"
-              onClick={onDeleteProject}
-              disabled={isDeleting}
-              className="gap-2 self-start lg:self-end"
-            >
-              <Trash2 className="h-4 w-4" />
-              {isDeleting ? 'Deleting…' : 'Delete project'}
-            </Button>
             <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
               <div className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary">
