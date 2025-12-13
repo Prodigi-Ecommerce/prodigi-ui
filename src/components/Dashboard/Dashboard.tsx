@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -139,11 +138,11 @@ export function Dashboard() {
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const { selectedWorkspaceId } = useWorkspaceContext()
-  const { user, accessToken } = useAuth()
+  const { accessToken } = useAuth()
   const navigate = useNavigate()
   const authHeaders = useMemo(
-    () => (user && accessToken ? { userId: user.id, accessToken } : null),
-    [user, accessToken]
+    () => (accessToken ? { accessToken } : null),
+    [accessToken]
   )
 
   const workspaceReady = Boolean(selectedWorkspaceId && authHeaders)
@@ -173,7 +172,7 @@ export function Dashboard() {
 
   useEffect(() => {
     if (selectedWorkspaceId && authHeaders) {
-      invalidateProjectsCache(selectedWorkspaceId, authHeaders.userId)
+      invalidateProjectsCache(selectedWorkspaceId, authHeaders.accessToken)
     }
     fetchProjectsList()
   }, [selectedWorkspaceId, authHeaders, workspaceReady])
@@ -309,7 +308,7 @@ export function Dashboard() {
       setProjects((prev) =>
         prev.filter((project) => project.projectId !== projectToDelete.projectId)
       )
-      await fetchProjects()
+      await fetchProjectsList()
       setIsDeleteDialogOpen(false)
       setProjectToDelete(null)
     } catch (err) {

@@ -1,4 +1,3 @@
-import { Card, CardContent } from '@/components/ui/card'
 import type { ProjectInputImage, ProjectOutputImage } from '@/types/projectsApi'
 import { sectionTitleClass } from '../../constants'
 import { ProjectImageCard } from '../ProjectImageCard/ProjectImageCard'

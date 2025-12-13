@@ -8,7 +8,7 @@ import projectsApiClient from './projectsApi'
 const workspacesCache = new Map<string, WorkspaceSummary[]>()
 
 export const fetchWorkspaces = async (auth: AuthHeaderParams) => {
-  const cacheKey = auth.userId
+  const cacheKey = auth.accessToken
   if (workspacesCache.has(cacheKey)) {
     return workspacesCache.get(cacheKey)!
   }
@@ -23,9 +23,9 @@ export const fetchWorkspaces = async (auth: AuthHeaderParams) => {
   return response.data
 }
 
-export const invalidateWorkspacesCache = (userId?: string) => {
-  if (userId) {
-    workspacesCache.delete(userId)
+export const invalidateWorkspacesCache = (accessToken?: string) => {
+  if (accessToken) {
+    workspacesCache.delete(accessToken)
   } else {
     workspacesCache.clear()
   }
@@ -43,7 +43,7 @@ export const deleteWorkspace = async ({
   await projectsApiClient.delete(`/workspaces/${workspaceId}`, {
     headers: getUserHeaders(auth),
   })
-  invalidateWorkspacesCache(auth.userId)
+  invalidateWorkspacesCache(auth.accessToken)
 }
 
 export const createWorkspace = async (name: string, auth: AuthHeaderParams) => {
@@ -55,6 +55,6 @@ export const createWorkspace = async (name: string, auth: AuthHeaderParams) => {
     }
   )
 
-  invalidateWorkspacesCache(auth.userId)
+  invalidateWorkspacesCache(auth.accessToken)
   return response.data
 }
