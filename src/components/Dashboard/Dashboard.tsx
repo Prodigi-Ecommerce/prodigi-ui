@@ -15,17 +15,23 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from '@/components/ui/dialog'
+import { Separator } from '@/components/ui/separator'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
 import { useAuth } from '@/contexts/AuthContext'
-import projectsApiClient from '@/services/projectsApi'
-import { getWorkspaceHeaders } from '@/services/apiHeaders'
+import { fetchProjects, invalidateProjectsCache } from '@/services/projectsService'
 import { deleteProject } from '@/services/projectsService'
 import type {
   ProjectInputImage,
@@ -39,6 +45,10 @@ import {
   ChevronUp,
   ArrowUpRight,
   ArrowDownToLine,
+  Clock3,
+  Image as ImageIcon,
+  Sparkles,
+  Search,
   Trash2,
 } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
@@ -46,13 +56,14 @@ import { GenerateFormPanel } from '@/components/Generate/GenerateFormPanel'
 import { cn } from '@/lib/utils'
 import { PreviewTile } from './components/PreviewTile/PreviewTile'
 import JSZip from 'jszip'
+import { Spinner } from '@/components/ui/spinner'
 
-const statusColors: Record<ProjectStatus, string> = {
-  DRAFT: 'bg-gray-500',
-  PENDING: 'bg-yellow-500',
-  PROCESSING: 'bg-blue-500',
-  COMPLETE: 'bg-green-500',
-  FAILED: 'bg-red-500',
+const statusStyles: Record<ProjectStatus, string> = {
+  DRAFT: 'bg-muted text-foreground border-border',
+  PENDING: 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-400/15 dark:text-amber-50 dark:border-amber-400/40',
+  PROCESSING: 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-400/15 dark:text-sky-50 dark:border-sky-400/40',
+  COMPLETE: 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-400/15 dark:text-emerald-50 dark:border-emerald-400/40',
+  FAILED: 'bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-400/15 dark:text-rose-50 dark:border-rose-400/40',
 }
 
 const deriveExtension = (image: ProjectInputImage | ProjectOutputImage) => {
@@ -137,7 +148,7 @@ export function Dashboard() {
 
   const workspaceReady = Boolean(selectedWorkspaceId && authHeaders)
 
-  const fetchProjects = async () => {
+  const fetchProjectsList = async () => {
     if (!workspaceReady || !selectedWorkspaceId || !authHeaders) {
       setProjects([])
       setLoading(false)
@@ -147,13 +158,11 @@ export function Dashboard() {
     setLoading(true)
     setError(null)
     try {
-      const response = await projectsApiClient.get<ProjectSummary[]>(
-        '/projects',
-        {
-          headers: getWorkspaceHeaders(selectedWorkspaceId, authHeaders),
-        }
-      )
-      setProjects(response.data)
+      const data = await fetchProjects({
+        workspaceId: selectedWorkspaceId,
+        auth: authHeaders,
+      })
+      setProjects(data)
     } catch (err) {
       console.error('Failed to fetch projects:', err)
       setError('Failed to load projects')
@@ -163,11 +172,15 @@ export function Dashboard() {
   }
 
   useEffect(() => {
-    fetchProjects()
+    if (selectedWorkspaceId && authHeaders) {
+      invalidateProjectsCache(selectedWorkspaceId, authHeaders.userId)
+    }
+    fetchProjectsList()
   }, [selectedWorkspaceId, authHeaders, workspaceReady])
 
   const hasActiveFilters =
     statusFilter !== 'ALL' || nameFilter.trim().length > 0
+  const filterButtonActive = showFilters || hasActiveFilters
 
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
@@ -187,6 +200,27 @@ export function Dashboard() {
       return true
     })
   }, [projects, statusFilter, nameFilter])
+  const statusCounts = useMemo(() => {
+    const totals: Record<ProjectStatus, number> = {
+      DRAFT: 0,
+      PENDING: 0,
+      PROCESSING: 0,
+      COMPLETE: 0,
+      FAILED: 0,
+    }
+    projects.forEach((project) => {
+      totals[project.status] += 1
+    })
+    return totals
+  }, [projects])
+  const totalOutputImages = useMemo(
+    () => projects.reduce((acc, project) => acc + project.outputImages.length, 0),
+    [projects]
+  )
+  const totalInputImages = useMemo(
+    () => projects.reduce((acc, project) => acc + project.inputImages.length, 0),
+    [projects]
+  )
 
   const resetFilters = () => {
     setStatusFilter('ALL')
@@ -255,10 +289,7 @@ export function Dashboard() {
   }
 
   const handleConfirmDelete = async () => {
-    if (!projectToDelete) {
-      return
-    }
-
+    if (!projectToDelete) return
     if (!selectedWorkspaceId || !authHeaders) {
       setDeleteError(
         'You must be signed in with a workspace selected to delete this project.'
@@ -317,44 +348,108 @@ export function Dashboard() {
           }
         />
 
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="relative overflow-hidden border-primary/20 bg-card">
+            <CardContent className="p-5 flex items-center justify-between">
+              <div className="space-y-2">
+                <p className={sectionTitleClass}>Active projects</p>
+                <h2 className="text-3xl font-semibold">{projects.length}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {statusCounts.COMPLETE} complete • {statusCounts.PROCESSING + statusCounts.PENDING} in progress
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <Sparkles className="h-6 w-6" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-300/40 bg-muted/60">
+            <CardContent className="p-5 flex items-center justify-between">
+              <div className="space-y-2">
+                <p className={sectionTitleClass}>In progress</p>
+                <h2 className="text-3xl font-semibold">
+                  {statusCounts.PROCESSING + statusCounts.PENDING}
+                </h2>
+                <p className="text-sm text-muted-foreground">Queued or rendering now</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-50 flex items-center justify-center">
+                <Clock3 className="h-6 w-6" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="p-5 flex items-center justify-between">
+              <div className="space-y-2">
+                <p className={sectionTitleClass}>Assets generated</p>
+                <h2 className="text-3xl font-semibold">{totalOutputImages}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {totalInputImages} references uploaded
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-primary/20 text-primary flex items-center justify-center">
+                <ImageIcon className="h-6 w-6" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="flex flex-col gap-4">
-          <div className="space-y-2 text-center sm:text-left">
-            <h1 className="text-3xl font-bold">Projects</h1>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className={sectionTitleClass}>Optional filters</p>
-            <Button
-              variant={showFilters || hasActiveFilters ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowFilters((prev) => !prev)}
-              disabled={!workspaceReady}
-              className="gap-2 self-start sm:self-auto"
-            >
-              <Filter className="h-4 w-4" />
-              {showFilters ? 'Hide filters' : 'Show filters'}
-              {showFilters ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold">Projects</h1>
+              <p className="text-sm text-muted-foreground">
+                Track generation runs, download outputs, and jump back into work.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              {hasActiveFilters && (
+                <Badge variant="secondary" className="rounded-full bg-primary/10 text-primary border-primary/30">
+                  {statusFilter !== 'ALL' ? `${statusFilter} • ` : ''}{' '}
+                  {nameFilter ? `“${nameFilter}”` : 'Filters active'}
+                </Badge>
               )}
-            </Button>
+              <Button
+                variant={filterButtonActive ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setShowFilters((prev) => !prev)}
+                disabled={!workspaceReady}
+                className={cn(
+                  'gap-2 rounded-full border border-border/60 transition-colors',
+                  filterButtonActive
+                    ? 'bg-primary/15 text-foreground hover:bg-primary/25 hover:text-foreground'
+                    : 'hover:bg-muted/60 hover:text-foreground'
+                )}
+              >
+                <Filter className="h-4 w-4" />
+                {showFilters ? 'Hide filters' : 'Show filters'}
+                {showFilters ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
 
         {showFilters && (
-          <Card>
+          <Card className="glass-panel border-primary/10">
             <CardContent className="pt-6 space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-[2fr_1.2fr]">
                 <div className="flex flex-col gap-2">
                   <Label className={sectionTitleClass}>
                     Search by name or ID
                   </Label>
-                  <Input
-                    placeholder="e.g. Spring campaign or project ID"
-                    value={nameFilter}
-                    onChange={(event) => setNameFilter(event.target.value)}
-                    disabled={!workspaceReady}
-                  />
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      className="pl-9"
+                      placeholder="e.g. Spring campaign or project ID"
+                      value={nameFilter}
+                      onChange={(event) => setNameFilter(event.target.value)}
+                      disabled={!workspaceReady}
+                    />
+                  </div>
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label className={sectionTitleClass}>Project status</Label>
@@ -377,48 +472,70 @@ export function Dashboard() {
                   </Select>
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
-                {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" onClick={resetFilters}>
-                    Reset filters
-                  </Button>
-                )}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { label: 'All', value: 'ALL', count: projects.length },
+                      { label: 'Draft', value: 'DRAFT', count: statusCounts.DRAFT },
+                      { label: 'Processing', value: 'PROCESSING', count: statusCounts.PROCESSING },
+                      { label: 'Complete', value: 'COMPLETE', count: statusCounts.COMPLETE },
+                      { label: 'Failed', value: 'FAILED', count: statusCounts.FAILED },
+                    ] as const
+                  ).map((option) => (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant={statusFilter === option.value ? 'default' : 'outline'}
+                      size="sm"
+                      className={cn(
+                        'rounded-full border border-border/60 transition-all',
+                        statusFilter === option.value && 'shadow-sm'
+                      )}
+                      onClick={() => setStatusFilter(option.value as ProjectStatus | 'ALL')}
+                      disabled={!workspaceReady}
+                    >
+                      {option.label}
+                      <Badge
+                        variant="secondary"
+                        className="ml-2 rounded-full bg-background/80 text-foreground px-2 py-0 text-[11px] font-semibold"
+                      >
+                        {option.count}
+                      </Badge>
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-2">
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" onClick={resetFilters}>
+                      Reset filters
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
 
         {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-6 w-2/3" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-full" />
-                </CardContent>
-              </Card>
-            ))}
+          <div className="flex flex-col items-center justify-center gap-3 py-12 text-center text-muted-foreground">
+            <Spinner className="h-6 w-6" />
+            <p className="text-sm">Loading projects…</p>
           </div>
         ) : !workspaceReady ? (
-          <Card className="border border-dashed border-border/60 shadow-none">
-            <CardContent className="flex flex-col items-center justify-center gap-3 py-16 px-8 text-center">
-              <p className="max-w-md text-muted-foreground">
-                No projects found. Create one to get started.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
+            <p className="max-w-md">
+              No projects found. Create one to get started.
+            </p>
+          </div>
         ) : filteredProjects.length === 0 ? (
-          <Card className="border border-dashed border-border/60 shadow-none">
-            <CardContent className="flex flex-col items-center justify-center gap-4 py-16 px-8 text-center">
-              <p className="max-w-md text-muted-foreground">
-                {hasActiveFilters
-                  ? 'No projects match your filters. Try adjusting or resetting them.'
-                  : 'No projects found. Create one to get started!'}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
+            <p className="max-w-md">
+              {hasActiveFilters
+                ? 'No projects match your filters. Try adjusting or resetting them.'
+                : 'No projects found. Create one to get started!'}
+            </p>
+          </div>
         ) : (
           <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 max-w-7xl mx-auto">
             {filteredProjects.map((project) => (
@@ -441,64 +558,117 @@ export function Dashboard() {
                     })
                   }
                 }}
-                className="group h-full overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg active:translate-y-0 py-0 gap-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+                className="group h-full overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg active:translate-y-0 py-0 gap-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 bg-card/90 backdrop-blur"
               >
                 <AspectRatio ratio={4 / 5} className="overflow-hidden">
                   <PreviewTile project={project} />
                 </AspectRatio>
-                <CardHeader className="space-y-3 px-4 py-4">
+                <CardHeader className="space-y-4 px-4 py-4">
                   <div className="flex flex-col gap-2 items-start">
-                    <Badge className={statusColors[project.status]}>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'border text-xs font-medium',
+                        statusStyles[project.status]
+                      )}
+                    >
                       {project.status}
                     </Badge>
-                    <h2 className="text-lg font-semibold transition-colors group-hover:text-primary">
+                    <h2 className="text-lg font-semibold transition-colors group-hover:text-primary line-clamp-2">
                       {project.name}
                     </h2>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground transition-all group-hover:text-primary">
-                      <span>Open project</span>
-                      <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4" />
+                        <span className="font-medium text-foreground">
+                          {project.outputImages.length}
+                        </span>
+                        <span className="text-muted-foreground">outputs</span>
+                        <Separator orientation="vertical" className="h-4" />
+                        <span className="font-medium text-foreground">
+                          {project.inputImages.length}
+                        </span>
+                        <span className="text-muted-foreground">inputs</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock3 className="h-4 w-4" />
+                        <span>
+                          {new Intl.DateTimeFormat(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                          }).format(new Date(project.updatedAt))}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 rounded-full border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                        disabled={
-                          downloadingProjectId === project.projectId ||
-                          project.outputImages.every((img) => !img.downloadUrl)
-                        }
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          handleDownloadOutputs(project)
-                        }}
-                      >
-                        <ArrowDownToLine
-                          className={cn(
-                            'h-4 w-4 transition-colors',
-                            downloadingProjectId === project.projectId
-                              ? 'text-muted-foreground'
-                              : 'text-foreground'
-                          )}
-                        />
-                        <span className="sr-only">Download outputs</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 rounded-full border border-transparent text-destructive hover:border-destructive/40 hover:bg-destructive/10 transition-colors"
-                        disabled={deletingProjectId === project.projectId || !workspaceReady}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          handleOpenDeleteDialog(project)
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete project</span>
-                      </Button>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground transition-all group-hover:text-primary">
+                        <span>Open project</span>
+                        <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 rounded-full border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                                disabled={
+                                  downloadingProjectId === project.projectId ||
+                                  project.outputImages.every((img) => !img.downloadUrl)
+                                }
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  handleDownloadOutputs(project)
+                                }}
+                              >
+                                {downloadingProjectId === project.projectId ? (
+                                  <Spinner className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <ArrowDownToLine
+                                    className={cn(
+                                      'h-4 w-4 transition-colors',
+                                      project.outputImages.every((img) => !img.downloadUrl)
+                                        ? 'text-muted-foreground'
+                                        : 'text-foreground'
+                                    )}
+                                  />
+                                )}
+                                <span className="sr-only">Download outputs</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Download all outputs as .zip
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 rounded-full border border-transparent text-destructive hover:border-destructive/40 hover:bg-destructive/10 transition-colors"
+                                disabled={deletingProjectId === project.projectId || !workspaceReady}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  handleOpenDeleteDialog(project)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Delete project</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Delete project
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </div>
                   </div>
                   {downloadErrors[project.projectId] && (

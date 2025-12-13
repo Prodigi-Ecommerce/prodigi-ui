@@ -27,11 +27,9 @@ export const ProjectImageSection = ({
     </div>
 
     {images.length === 0 ? (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          No images available.
-        </CardContent>
-      </Card>
+      <div className="py-6 text-sm text-muted-foreground text-center">
+        No images available.
+      </div>
     ) : (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {images.map((image) => (

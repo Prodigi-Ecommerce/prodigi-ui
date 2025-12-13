@@ -23,11 +23,12 @@ export const ProjectImageCard = ({
   const previewUrl = image.thumbnailDownloadUrl ?? image.downloadUrl
   const viewUrl = image.downloadUrl ?? image.thumbnailDownloadUrl
   const downloadUrl = image.downloadUrl ?? image.thumbnailDownloadUrl
-  const typeLabel = kind === 'input' ? 'Input' : 'Output'
-  const hasDownload = Boolean(downloadUrl)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number } | null>(null)
+  const typeLabel = kind === 'output' ? 'Output' : 'Input'
+  const hasPreview = Boolean(previewUrl) && !imageError
+  const hasDownload = Boolean(downloadUrl)
 
   useEffect(() => {
     setImageLoaded(false)
@@ -35,16 +36,17 @@ export const ProjectImageCard = ({
   }, [previewUrl])
 
   return (
-    <Card className="group overflow-hidden p-0">
+    <Card className="group flex h-full flex-col overflow-hidden p-0 bg-card/90 border-border/60 backdrop-blur transition-all hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40">
       <Dialog>
         <DialogTrigger asChild>
           <button
             type="button"
-            className="relative bg-muted w-full cursor-zoom-in"
+            aria-label={`${typeLabel} image preview ${image.imageId}`}
+            className="relative block w-full flex-1 bg-muted cursor-zoom-in text-left p-0 leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
           >
-            <AspectRatio ratio={4 / 5} className="overflow-hidden">
-              {!previewUrl || imageError ? (
-                <div className="flex h-full w-full items-center justify-center p-4 text-center text-xs text-muted-foreground">
+            <AspectRatio ratio={3 / 4} className="overflow-hidden relative">
+              {!hasPreview ? (
+                <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-xs text-muted-foreground">
                   Preview unavailable
                 </div>
               ) : (
@@ -57,9 +59,10 @@ export const ProjectImageCard = ({
                   <img
                     src={previewUrl}
                     alt={`${typeLabel} ${image.imageId}`}
-                    className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] ${
-                      imageLoaded ? 'opacity-100' : 'opacity-0'
-                    }`}
+                    className={cn(
+                      'absolute inset-0 block h-full w-full object-cover transition-transform duration-300',
+                      imageLoaded ? 'opacity-100 group-hover:scale-[1.02]' : 'opacity-0'
+                    )}
                     loading="lazy"
                     decoding="async"
                     onLoad={() => setImageLoaded(true)}
@@ -69,22 +72,25 @@ export const ProjectImageCard = ({
               )}
             </AspectRatio>
 
-            <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/70 via-transparent to-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-background/80 via-transparent to-background/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
               <div className="flex items-start justify-between p-3">
-                <Badge variant="secondary" className="text-xs uppercase">
+                <Badge
+                  variant="secondary"
+                  className="text-[11px] uppercase bg-background/90 text-foreground border border-border/60"
+                >
                   {typeLabel}
                 </Badge>
-                <Maximize2 className="h-4 w-4 text-white" />
+                <Maximize2 className="h-4 w-4 text-foreground" />
               </div>
               <div className="flex items-center justify-between gap-2 p-3">
-                <span className="text-xs text-white uppercase tracking-wide">
+                <span className="text-xs text-foreground uppercase tracking-wide">
                   View
                 </span>
                 {onDownloadImage ? (
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 rounded-full border-border/60 bg-background/80 hover:bg-primary/10"
                     onClick={(event) => {
                       event.stopPropagation()
                       onDownloadImage(image)
@@ -103,9 +109,7 @@ export const ProjectImageCard = ({
             </div>
           </button>
         </DialogTrigger>
-        <DialogContent
-          className="w-[40vw] max-w-[40vw] sm:max-w-[40vw] md:max-w-[40vw] lg:max-w-[40vw] xl:max-w-[40vw] p-1 sm:p-3 [&_[data-slot='dialog-close']]:text-black [&_[data-slot='dialog-close']]:hover:text-black [&_[data-slot='dialog-close']]:data-[state=open]:text-black"
-        >
+        <DialogContent className="w-[40vw] max-w-[90vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw] xl:max-w-[50vw] p-2 sm:p-3 [&_[data-slot='dialog-close']]:text-foreground [&_[data-slot='dialog-close']]:hover:text-foreground">
           <DialogHeader className="sr-only">
             <DialogTitle>
               {typeLabel} image • {image.imageId}
@@ -113,7 +117,7 @@ export const ProjectImageCard = ({
           </DialogHeader>
           {viewUrl ? (
             <div
-              className="relative mx-auto max-h-[98vh] w-full max-w-[40vw] overflow-hidden rounded-lg bg-muted"
+              className="relative mx-auto max-h-[98vh] w-full overflow-hidden rounded-lg bg-muted"
               onMouseMove={(event) => {
                 const rect = event.currentTarget.getBoundingClientRect()
                 const x = ((event.clientX - rect.left) / rect.width) * 100
@@ -126,8 +130,8 @@ export const ProjectImageCard = ({
                 src={viewUrl}
                 alt={`${typeLabel} ${image.imageId}`}
                 className={cn(
-                  'mx-auto max-h-[98vh] w-full max-w-[30vw] object-contain transition-transform duration-200 ease-out',
-                  zoomOrigin ? 'scale-[1.8]' : 'scale-100'
+                  'mx-auto max-h-[80vh] w-full object-contain transition-transform duration-200 ease-out',
+                  zoomOrigin ? 'scale-[1.5]' : 'scale-100'
                 )}
                 style={
                   zoomOrigin
@@ -141,14 +145,14 @@ export const ProjectImageCard = ({
           ) : null}
 
           {viewUrl ? (
-            <div className="mt-3 flex items-center justify-end gap-3">
+            <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-muted-foreground">
                 {typeLabel} image • {image.imageId}
               </p>
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2"
+                className="gap-2 rounded-full"
                 onClick={() => window.open(viewUrl, '_blank', 'noopener,noreferrer')}
               >
                 <ExternalLink className="h-4 w-4" />
@@ -162,10 +166,26 @@ export const ProjectImageCard = ({
           )}
         </DialogContent>
       </Dialog>
-      <CardContent className="space-y-1 p-3 border-t">
-        <p className="text-xs text-muted-foreground">
-          {kind === 'output' ? 'Output' : 'Input'} image
-        </p>
+      <CardContent className="mt-auto p-3 border-t bg-muted/20">
+        <div className="flex items-center justify-between text-[12px] text-muted-foreground gap-2">
+          <span className="font-medium text-foreground">
+            {kind === 'output' ? 'Output' : 'Input'} image
+          </span>
+          {hasDownload ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 gap-1 rounded-full text-foreground hover:bg-primary/10"
+              onClick={() => onDownloadImage?.(image)}
+              disabled={!hasDownload}
+            >
+              <Download className="h-4 w-4" />
+              <span className="sr-only">Download image</span>
+            </Button>
+          ) : (
+            <span className="text-[11px] text-muted-foreground">Pending</span>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

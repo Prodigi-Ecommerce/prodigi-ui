@@ -7,14 +7,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
-  SidebarTrigger,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import {
   LayoutDashboard,
-  Grid2x2,
   Sparkle,
   LogOut,
   ChevronsUpDown,
@@ -26,6 +24,7 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/AuthContext'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -46,6 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
 import { SheetClose } from '@/components/ui/sheet'
 
@@ -55,12 +55,11 @@ const navItems = [
     description: 'Project overview',
     url: '/dashboard',
     icon: LayoutDashboard,
-    collapsedIcon: Grid2x2,
   },
 ]
 
 export function AppSidebar() {
-  const { state, isMobile } = useSidebar()
+  const { isMobile } = useSidebar()
   const pathname = useRouterState({
     select: (routerState) => routerState.location.pathname,
   })
@@ -82,9 +81,8 @@ export function AppSidebar() {
     error: workspaceError,
   } = useWorkspaceContext()
   const userInitial = user?.email?.[0]?.toUpperCase() ?? 'P'
-  const isCollapsed = state === 'collapsed'
-  const accountPopoverSide = isCollapsed ? 'right' : 'top'
   const hasWorkspaces = workspaces.length > 0
+  const accountPopoverSide: 'top' | 'right' = 'top'
   const workspacePlaceholder = (() => {
     if (workspacesLoading) return 'Loading workspaces…'
     if (workspaceError) return 'Workspace error'
@@ -127,23 +125,26 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon" variant="floating">
-      <SidebarHeader className="px-2 pb-3">
+    <Sidebar
+      variant="floating"
+      className="bg-transparent border-0 shadow-none"
+    >
+      <SidebarHeader className="px-2 pb-3 relative">
         <div
           className={cn(
             'flex items-center h-12 w-full',
-            isCollapsed ? 'justify-center' : 'justify-between'
+            'justify-between'
           )}
         >
-          {!isCollapsed && (
-            <SidebarGroupLabel className="flex items-center gap-3 text-sm font-semibold !h-12 px-0">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                <Sparkle className="h-4 w-4" />
-              </span>
+          <SidebarGroupLabel className="flex items-center gap-3 text-sm font-semibold !h-12 px-0">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <Sparkle className="h-4 w-4" />
+            </span>
+            <div className="flex flex-col leading-tight">
               <span className="text-sm font-semibold">Prodigi</span>
-            </SidebarGroupLabel>
-          )}
-          <SidebarTrigger className="hover:bg-accent rounded-md p-2 h-8 w-8" />
+              <span className="text-[11px] text-muted-foreground">AI studio</span>
+            </div>
+          </SidebarGroupLabel>
         </div>
       </SidebarHeader>
 
@@ -154,10 +155,7 @@ export function AppSidebar() {
               {navItems.map((item) => {
                 const isActive =
                   pathname === item.url || pathname.startsWith(`${item.url}/`)
-                const Icon =
-                  state === 'collapsed' && item.collapsedIcon
-                    ? item.collapsedIcon
-                    : item.icon
+                const Icon = item.icon
 
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -165,45 +163,16 @@ export function AppSidebar() {
                       asChild
                       size='lg'
                       isActive={isActive}
-                      tooltip={state === 'collapsed' ? item.title : undefined}
-                      className="transition-colors data-[active=true]:bg-primary/15 data-[active=true]:text-primary h-12 w-full"
+                      className="transition-all data-[active=true]:bg-primary/15 data-[active=true]:text-primary h-12 w-full hover:translate-x-[1px] justify-start"
                     >
                       {isMobile ? (
                         <SheetClose asChild>
                           <Link
                             to={item.url}
                             aria-current={isActive ? 'page' : undefined}
-                            className={cn(
-                              'flex w-full items-center gap-3',
-                              isCollapsed && 'justify-center gap-0'
-                            )}
+                            className="flex w-full items-center gap-3"
                           >
                             <Icon className="h-4 w-4 flex-shrink-0" />
-                            {!isCollapsed && (
-                              <div className="flex flex-col text-left leading-tight">
-                                <span className="text-sm font-medium">
-                                  {item.title}
-                                </span>
-                                {item.description && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {item.description}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </Link>
-                        </SheetClose>
-                      ) : (
-                        <Link
-                          to={item.url}
-                          aria-current={isActive ? 'page' : undefined}
-                          className={cn(
-                            'flex w-full items-center gap-3',
-                            isCollapsed && 'justify-center gap-0'
-                          )}
-                        >
-                          <Icon className="h-4 w-4 flex-shrink-0" />
-                          {!isCollapsed && (
                             <div className="flex flex-col text-left leading-tight">
                               <span className="text-sm font-medium">
                                 {item.title}
@@ -214,7 +183,25 @@ export function AppSidebar() {
                                 </span>
                               )}
                             </div>
-                          )}
+                          </Link>
+                        </SheetClose>
+                      ) : (
+                        <Link
+                          to={item.url}
+                          aria-current={isActive ? 'page' : undefined}
+                          className="flex w-full items-center gap-3"
+                        >
+                          <Icon className="h-4 w-4 flex-shrink-0" />
+                          <div className="flex flex-col text-left leading-tight">
+                            <span className="text-sm font-medium">
+                              {item.title}
+                            </span>
+                            {item.description && (
+                              <span className="text-xs text-muted-foreground">
+                                {item.description}
+                              </span>
+                            )}
+                          </div>
                         </Link>
                       )}
                     </SidebarMenuButton>
@@ -225,116 +212,113 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {!isCollapsed && (
-          <SidebarGroup className="px-2 pb-2 mt-auto">
-            <div className="flex items-center justify-between">
-              <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wide px-0">
-                Workspace
-              </SidebarGroupLabel>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  aria-label="Delete workspace"
-                  disabled={
-                    !selectedWorkspaceId || isDeletingSelected || workspacesLoading
-                  }
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  {isDeletingSelected ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  aria-label="Add workspace"
-                  onClick={() => setWorkspaceDialogOpen(true)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            <SidebarGroupContent className="mt-3">
-              <Select
-                value={selectedWorkspaceId ?? undefined}
-                onValueChange={(value) => selectWorkspace(value)}
-                disabled={workspacesLoading || !hasWorkspaces}
+        <SidebarGroup className="px-2 pb-2 mt-auto">
+          <div className="flex items-center justify-between">
+            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wide px-0">
+              Workspaces
+            </SidebarGroupLabel>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                aria-label="Delete workspace"
+                disabled={
+                  !selectedWorkspaceId || isDeletingSelected || workspacesLoading
+                }
+                onClick={() => setDeleteDialogOpen(true)}
               >
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue placeholder={workspacePlaceholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  {workspaces.map((workspace) => (
-                    <SelectItem
-                      key={workspace.workspaceId}
-                      value={workspace.workspaceId}
-                    >
-                      {workspace.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {workspacesLoading && (
-                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                {isDeletingSelected ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Syncing workspaces…</span>
-                </div>
-              )}
-              {workspaceError && (
-                <p className="mt-2 text-xs text-destructive">{workspaceError}</p>
-              )}
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                aria-label="Add workspace"
+                onClick={() => setWorkspaceDialogOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+          <SidebarGroupContent className="mt-3 rounded-lg border border-border/70 bg-card/70 p-3 space-y-2">
+            <Select
+              value={selectedWorkspaceId ?? undefined}
+              onValueChange={(value) => selectWorkspace(value)}
+              disabled={workspacesLoading || !hasWorkspaces}
+            >
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue placeholder={workspacePlaceholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {workspaces.map((workspace) => (
+                  <SelectItem
+                    key={workspace.workspaceId}
+                    value={workspace.workspaceId}
+                  >
+                    {workspace.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {workspacesLoading && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Syncing workspaces…</span>
+              </div>
+            )}
+            {workspaceError && (
+              <p className="text-xs text-destructive">{workspaceError}</p>
+            )}
+            {!workspacesLoading && !workspaceError && (
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>
+                  Active:{' '}
+                  <span className="text-foreground font-medium">
+                    {selectedWorkspace?.name ?? 'None'}
+                  </span>
+                </span>
+                <span className="text-primary/80">
+                  {workspaces.length} total
+                </span>
+              </div>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       {user && (
-        <SidebarFooter className="px-2 pb-2 pt-0">
-          <SidebarMenu className={cn('w-full', isCollapsed && 'px-0')}>
+        <SidebarFooter className="px-2 pb-3 pt-3 border-t border-border/60">
+          <SidebarMenu className="w-full">
             <SidebarMenuItem>
               <Popover>
                 <PopoverTrigger asChild>
                   <SidebarMenuButton
                     className="h-12 w-full justify-between data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
-                    tooltip={isCollapsed ? 'Account' : undefined}
                     size='lg'
                   >
-                    <span
-                      className={cn(
-                        'flex items-center gap-3 overflow-hidden',
-                        isCollapsed && 'w-full justify-center gap-0'
-                      )}
-                    >
-                      <Avatar
-                        className={cn(
-                          'h-10 w-10 rounded-md bg-primary/15 text-primary shrink-0'
-                        )}
-                      >
+                    <span className="flex items-center gap-3 overflow-hidden">
+                      <Avatar className="h-10 w-10 rounded-md bg-primary/15 text-primary shrink-0">
                         <AvatarFallback className="rounded-md bg-primary/15 text-base font-semibold text-primary">
                           {userInitial}
                         </AvatarFallback>
                       </Avatar>
-                      {!isCollapsed && (
-                        <span className="flex flex-col text-left leading-tight">
-                          <span className="text-sm font-medium text-foreground">
-                            {user.email}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            Account
-                          </span>
+                      <span className="flex flex-col text-left leading-tight">
+                        <span className="text-sm font-medium text-foreground">
+                          {user.email}
                         </span>
-                      )}
+                        <span className="text-xs text-muted-foreground">
+                          Account
+                        </span>
+                      </span>
                     </span>
-                    {!isCollapsed && (
-                      <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
                   </SidebarMenuButton>
                 </PopoverTrigger>
                 <PopoverContent

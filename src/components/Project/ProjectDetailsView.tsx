@@ -10,7 +10,7 @@ import { useMemo } from 'react'
 import { ProjectImageSection } from './components/ProjectImageSection/ProjectImageSection'
 import { MetadataItem } from './components/MetadataItem/MetadataItem'
 import { formatDate } from './ProjectDetailsView.utils'
-import { statusColors } from './ProjectDetailsView.configs'
+import { statusStyles } from './ProjectDetailsView.configs'
 
 interface ProjectDetailsViewProps {
   project: ProjectDetail
@@ -42,14 +42,17 @@ export function ProjectDetailsView({
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
-              <Badge className={statusColors[project.status]}>
+              <Badge
+                variant="outline"
+                className={`border text-xs font-medium ${statusStyles[project.status]}`}
+              >
                 {project.status}
               </Badge>
               <h1 className="text-3xl font-semibold tracking-tight">
                 {project.name}
               </h1>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 bg-card/60 border border-border rounded-xl p-4">
               <MetadataItem
                 label="Created"
                 value={formatDate(project.createdAt)}
@@ -67,12 +70,12 @@ export function ProjectDetailsView({
                 value={String(project.outputImages.length)}
               />
             </div>
-            <div>
+            <div className="flex flex-wrap gap-2">
               <Button
-                variant="ghost"
+                variant="outline"
                 onClick={onDeleteProject}
                 disabled={isDeleting}
-                className="gap-2 text-destructive hover:text-destructive bg-transparent hover:bg-transparent focus-visible:ring-destructive/50"
+                className="gap-2 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
                 {isDeleting ? 'Deleting…' : 'Delete project'}
@@ -80,7 +83,7 @@ export function ProjectDetailsView({
             </div>
           </div>
           <div className="flex flex-col gap-3 lg:items-end">
-            <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm max-w-sm">
               <div className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                   Output bundle

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Sparkles } from 'lucide-react'
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { processImages } from '@/components/AIProductPhotoForm/AiProductPhotoForm.utils'
@@ -228,7 +229,14 @@ export function GenerateFormPanel({
             className="w-full"
             disabled={isProcessing || !selectedWorkspaceId || !authHeaders}
           >
-            {isProcessing ? 'Processing...' : 'Generate'}
+            {isProcessing ? (
+              <span className="flex items-center justify-center gap-2 relative z-10">
+                <Sparkles className="h-4 w-4 animate-spin-slow" />
+                <span>Submitting...</span>
+              </span>
+            ) : (
+              'Generate'
+            )}
           </Button>
         </form>
       </Form>

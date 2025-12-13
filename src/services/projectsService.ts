@@ -1,11 +1,55 @@
 import type {
   CreateProjectResponse,
   ProjectDetail,
+  ProjectSummary,
   UpdateProjectResponse,
   UploadUrl,
 } from '@/types/projectsApi'
 import { getWorkspaceHeaders, type AuthHeaderParams } from './apiHeaders'
 import projectsApiClient from './projectsApi'
+
+const projectsCache = new Map<string, ProjectSummary[]>()
+
+const projectsCacheKey = (workspaceId: string, userId: string) =>
+  `${workspaceId}::${userId}`
+
+export const fetchProjects = async ({
+  workspaceId,
+  auth,
+}: {
+  workspaceId: string
+  auth: AuthHeaderParams
+}) => {
+  const key = projectsCacheKey(workspaceId, auth.userId)
+  if (projectsCache.has(key)) {
+    return projectsCache.get(key)!
+  }
+
+  const response = await projectsApiClient.get<ProjectSummary[]>(
+    '/projects',
+    {
+      headers: getWorkspaceHeaders(workspaceId, auth),
+    }
+  )
+  projectsCache.set(key, response.data)
+  return response.data
+}
+
+export const invalidateProjectsCache = (workspaceId?: string, userId?: string) => {
+  if (workspaceId && userId) {
+    projectsCache.delete(projectsCacheKey(workspaceId, userId))
+    return
+  }
+  if (workspaceId) {
+    Array.from(projectsCache.keys()).forEach((key) => {
+      if (key.startsWith(`${workspaceId}::`)) {
+        projectsCache.delete(key)
+      }
+    })
+    return
+  }
+  projectsCache.clear()
+}
 
 interface CreateProjectArgs {
   workspaceId: string
@@ -32,6 +76,7 @@ export const createProject = async ({
       headers: getWorkspaceHeaders(workspaceId, auth),
     }
   )
+  invalidateProjectsCache(workspaceId, auth.userId)
   return response.data
 }
 
@@ -62,6 +107,7 @@ export const updateProject = async ({
       headers: getWorkspaceHeaders(workspaceId, auth),
     }
   )
+  invalidateProjectsCache(workspaceId, auth.userId)
   return response.data
 }
 
@@ -99,4 +145,5 @@ export const deleteProject = async ({
   await projectsApiClient.delete(`/projects/${projectId}`, {
     headers: getWorkspaceHeaders(workspaceId, auth),
   })
+  invalidateProjectsCache(workspaceId, auth.userId)
 }
