@@ -6,7 +6,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
 import type { ProjectInputImage, ProjectOutputImage } from '@/types/projectsApi'
-import { Download, Maximize2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Download, ExternalLink, Maximize2 } from 'lucide-react'
 
 interface ProjectImageCardProps {
   image: ProjectInputImage | ProjectOutputImage
@@ -19,16 +20,19 @@ export const ProjectImageCard = ({
   kind,
   onDownloadImage,
 }: ProjectImageCardProps) => {
-  const { downloadUrl } = image
+  const previewUrl = image.thumbnailDownloadUrl ?? image.downloadUrl
+  const viewUrl = image.downloadUrl ?? image.thumbnailDownloadUrl
+  const downloadUrl = image.downloadUrl ?? image.thumbnailDownloadUrl
   const typeLabel = kind === 'input' ? 'Input' : 'Output'
   const hasDownload = Boolean(downloadUrl)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     setImageLoaded(false)
     setImageError(false)
-  }, [downloadUrl])
+  }, [previewUrl])
 
   return (
     <Card className="group overflow-hidden p-0">
@@ -39,7 +43,7 @@ export const ProjectImageCard = ({
             className="relative bg-muted w-full cursor-zoom-in"
           >
             <AspectRatio ratio={4 / 5} className="overflow-hidden">
-              {!downloadUrl || imageError ? (
+              {!previewUrl || imageError ? (
                 <div className="flex h-full w-full items-center justify-center p-4 text-center text-xs text-muted-foreground">
                   Preview unavailable
                 </div>
@@ -51,7 +55,7 @@ export const ProjectImageCard = ({
                     </div>
                   )}
                   <img
-                    src={downloadUrl}
+                    src={previewUrl}
                     alt={`${typeLabel} ${image.imageId}`}
                     className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] ${
                       imageLoaded ? 'opacity-100' : 'opacity-0'
@@ -99,18 +103,58 @@ export const ProjectImageCard = ({
             </div>
           </button>
         </DialogTrigger>
-        <DialogContent className="max-w-6xl">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-medium">
+        <DialogContent
+          className="w-[40vw] max-w-[40vw] sm:max-w-[40vw] md:max-w-[40vw] lg:max-w-[40vw] xl:max-w-[40vw] p-1 sm:p-3 [&_[data-slot='dialog-close']]:text-black [&_[data-slot='dialog-close']]:hover:text-black [&_[data-slot='dialog-close']]:data-[state=open]:text-black"
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>
               {typeLabel} image • {image.imageId}
             </DialogTitle>
           </DialogHeader>
-          {downloadUrl ? (
-            <img
-              src={downloadUrl}
-              alt={`${typeLabel} ${image.imageId}`}
-              className="mx-auto max-h-[80vh] w-full max-w-[min(1200px,90vw)] rounded-md object-contain"
-            />
+          {viewUrl ? (
+            <div
+              className="relative mx-auto max-h-[98vh] w-full max-w-[40vw] overflow-hidden rounded-lg bg-muted"
+              onMouseMove={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect()
+                const x = ((event.clientX - rect.left) / rect.width) * 100
+                const y = ((event.clientY - rect.top) / rect.height) * 100
+                setZoomOrigin({ x, y })
+              }}
+              onMouseLeave={() => setZoomOrigin(null)}
+            >
+              <img
+                src={viewUrl}
+                alt={`${typeLabel} ${image.imageId}`}
+                className={cn(
+                  'mx-auto max-h-[98vh] w-full max-w-[30vw] object-contain transition-transform duration-200 ease-out',
+                  zoomOrigin ? 'scale-[1.8]' : 'scale-100'
+                )}
+                style={
+                  zoomOrigin
+                    ? {
+                        transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+                      }
+                    : undefined
+                }
+              />
+            </div>
+          ) : null}
+
+          {viewUrl ? (
+            <div className="mt-3 flex items-center justify-end gap-3">
+              <p className="text-sm font-medium text-muted-foreground">
+                {typeLabel} image • {image.imageId}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => window.open(viewUrl, '_blank', 'noopener,noreferrer')}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open full size
+              </Button>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               Preview unavailable for this image.

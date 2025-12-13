@@ -13,10 +13,20 @@ import {
 import { AspectRatio } from '@/components/ui/aspect-ratio'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from '@/components/ui/dialog'
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext'
 import { useAuth } from '@/contexts/AuthContext'
 import projectsApiClient from '@/services/projectsApi'
 import { getWorkspaceHeaders } from '@/services/apiHeaders'
+import { deleteProject } from '@/services/projectsService'
 import type {
   ProjectInputImage,
   ProjectOutputImage,
@@ -29,6 +39,7 @@ import {
   ChevronUp,
   ArrowUpRight,
   ArrowDownToLine,
+  Trash2,
 } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { GenerateFormPanel } from '@/components/Generate/GenerateFormPanel'
@@ -112,6 +123,10 @@ export function Dashboard() {
   const [showFilters, setShowFilters] = useState(false)
   const [downloadingProjectId, setDownloadingProjectId] = useState<string | null>(null)
   const [downloadErrors, setDownloadErrors] = useState<Record<string, string>>({})
+  const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const { selectedWorkspaceId } = useWorkspaceContext()
   const { user, accessToken } = useAuth()
   const navigate = useNavigate()
@@ -230,6 +245,47 @@ export function Dashboard() {
       }))
     } finally {
       setDownloadingProjectId(null)
+    }
+  }
+
+  const handleOpenDeleteDialog = (project: ProjectSummary) => {
+    setProjectToDelete(project)
+    setDeleteError(null)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!projectToDelete) {
+      return
+    }
+
+    if (!selectedWorkspaceId || !authHeaders) {
+      setDeleteError(
+        'You must be signed in with a workspace selected to delete this project.'
+      )
+      return
+    }
+
+    setDeletingProjectId(projectToDelete.projectId)
+    setDeleteError(null)
+
+    try {
+      await deleteProject({
+        workspaceId: selectedWorkspaceId,
+        projectId: projectToDelete.projectId,
+        auth: authHeaders,
+      })
+      setProjects((prev) =>
+        prev.filter((project) => project.projectId !== projectToDelete.projectId)
+      )
+      await fetchProjects()
+      setIsDeleteDialogOpen(false)
+      setProjectToDelete(null)
+    } catch (err) {
+      console.error('Failed to delete project', err)
+      setDeleteError('Failed to delete project. Please try again.')
+    } finally {
+      setDeletingProjectId(null)
     }
   }
 
@@ -404,30 +460,46 @@ export function Dashboard() {
                       <span>Open project</span>
                       <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-full border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                      disabled={
-                        downloadingProjectId === project.projectId ||
-                        project.outputImages.every((img) => !img.downloadUrl)
-                      }
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        handleDownloadOutputs(project)
-                      }}
-                    >
-                      <ArrowDownToLine
-                        className={cn(
-                          'h-4 w-4 transition-colors',
-                          downloadingProjectId === project.projectId
-                            ? 'text-muted-foreground'
-                            : 'text-foreground'
-                        )}
-                      />
-                      <span className="sr-only">Download outputs</span>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-full border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                        disabled={
+                          downloadingProjectId === project.projectId ||
+                          project.outputImages.every((img) => !img.downloadUrl)
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleDownloadOutputs(project)
+                        }}
+                      >
+                        <ArrowDownToLine
+                          className={cn(
+                            'h-4 w-4 transition-colors',
+                            downloadingProjectId === project.projectId
+                              ? 'text-muted-foreground'
+                              : 'text-foreground'
+                          )}
+                        />
+                        <span className="sr-only">Download outputs</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-full border border-transparent text-destructive hover:border-destructive/40 hover:bg-destructive/10 transition-colors"
+                        disabled={deletingProjectId === project.projectId || !workspaceReady}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleOpenDeleteDialog(project)
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete project</span>
+                      </Button>
+                    </div>
                   </div>
                   {downloadErrors[project.projectId] && (
                     <p className="text-xs text-destructive">
@@ -439,6 +511,49 @@ export function Dashboard() {
             ))}
           </div>
         )}
+
+        <Dialog
+          open={isDeleteDialogOpen}
+          onOpenChange={(open) => {
+            setIsDeleteDialogOpen(open)
+            if (!open) {
+              setProjectToDelete(null)
+              setDeleteError(null)
+              setDeletingProjectId(null)
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete project</DialogTitle>
+              <DialogDescription>
+                {projectToDelete
+                  ? `Are you sure you want to delete "${projectToDelete.name}"? This will remove the project and its images.`
+                  : 'Are you sure you want to delete this project?'}
+              </DialogDescription>
+            </DialogHeader>
+            {deleteError && (
+              <p className="text-sm text-destructive">{deleteError}</p>
+            )}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDelete}
+                disabled={
+                  !projectToDelete ||
+                  deletingProjectId === projectToDelete.projectId
+                }
+              >
+                {deletingProjectId === projectToDelete?.projectId
+                  ? 'Deleting…'
+                  : 'Delete project'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
